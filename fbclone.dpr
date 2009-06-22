@@ -1,6 +1,7 @@
 program fbclone;
 
 {$APPTYPE CONSOLE}
+{$R *.res}
 
 uses
   Windows,
@@ -302,7 +303,7 @@ begin
     end;
 
     { Lit l'intégralité des métadonnées }
-    metadb.OIDDatabases := ALLObjects - [OIDDBCharset];
+    metadb.OIDDatabases := ALLObjects;
     metadb.LoadFromDatabase(SrcTransaction);
 
     if DataCharset = '' then
