@@ -6,6 +6,7 @@ program fbclone;
 uses
   Windows,
   SysUtils,
+  Classes,
   Generics.Collections,
   UIB,
   UIBLib,
@@ -26,15 +27,19 @@ type
 
 procedure TraceAction(const DB: string; const Action: String; Categorie: TLogCategory; Resultat: TScriptResult);
 begin
-  WriteLn(Action);
+  if Resultat = srEchec then
+    WriteLn(ErrOutput, Action)
+  else
+    WriteLn(Action);
 end;
 
-function Clone(const Source, Target: TDatabase; const DataCharset, MetaCharset: string; Verbose: Boolean): Boolean;
+function Clone(const Source, Target: TDatabase; const DataCharset, MetaCharset: string; Verbose: Boolean; const DumpFile: string): Boolean;
 var
   SrcDatabase, DstDatabase: TUIBDatabase;
   SrcTransaction, DstTransaction: TUIBTransaction;
   SrcQuery: TUIBQuery;
   FErrorsCount: Integer;
+  SQLDump: TStringStream;
 
   procedure AddLog(const What: string; Categorie: TLogCategory = lcInfo; Resultat: TScriptResult = srSucces); overload;
   begin
@@ -306,6 +311,18 @@ begin
     metadb.OIDDatabases := ALLObjects;
     metadb.LoadFromDatabase(SrcTransaction);
 
+    { Ecrit le script SQL de création de la base de données dans le fichier }
+    if DumpFile <> '' then
+    begin
+      SQLDump := TStringStream.Create;
+      try
+        metadb.SaveToDDL(SQLDump, [ddlFull]);
+        SQLDump.SaveToFile(DumpFile);
+      finally
+        SQLDump.Free;
+      end;
+    end;
+
     if DataCharset = '' then
       data_charset := metadb.DefaultCharset
     else
@@ -348,6 +365,12 @@ begin
     begin
       AddLog('Create Generator: %s', [metadb.Generators[i].Name]);
       ExecuteImmediate(metadb.Generators[i].AsCreateDLL);
+    end;
+
+    // GENERATORS VALUES
+    for i := 0 to metadb.GeneratorsCount - 1 do
+    begin
+      AddLog('Alter Generator: %s', [metadb.Generators[i].Name]);
       ExecuteImmediate(metadb.Generators[i].AsAlterDDL);
     end;
 
@@ -515,9 +538,11 @@ var
   src, tgt: TDatabase;
   data_charset, meta_charset: string;
   verbose: Boolean;
+  dump_file: string;
 begin
   verbose := false;
   meta_charset := '';
+  dump_file := '';
 
   GO := TGetOpt.Create;
   try
@@ -535,6 +560,8 @@ begin
 
       GO.RegisterSwitch('c', 'charset',  'charset',  'Jeu de caractères à utiliser pour la copie des données', false);
       GO.RegisterSwitch('mc', 'metadata-charset', 'charset', 'Jeu de caractères à utiliser pour la connexion aux métadonnées de la base de données source', false);
+
+      GO.RegisterSwitch('d', 'dump', 'file', 'Dump SQL script into file', false);
 
       GO.Parse;
 
@@ -575,7 +602,9 @@ begin
         else if P.Key^.Short = 'mc' then
           meta_charset := P.Value
         else if P.Key^.Short = 'v' then
-          verbose := true;
+          verbose := true
+        else if P.Key^.Short = 'd' then
+          dump_file := P.Value;
       end;
 
     except
@@ -591,7 +620,7 @@ begin
   end;
 
   try
-    Clone(src, tgt, data_charset, meta_charset, verbose);
+    Clone(src, tgt, data_charset, meta_charset, verbose, dump_file);
   except
     on E: Exception do
     begin
