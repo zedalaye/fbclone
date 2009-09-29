@@ -71,7 +71,7 @@
 						<VersionInfo Name="IncludeVerInfo">True</VersionInfo>
 						<VersionInfo Name="AutoIncBuild">False</VersionInfo>
 						<VersionInfo Name="MajorVer">1</VersionInfo>
-						<VersionInfo Name="MinorVer">0</VersionInfo>
+						<VersionInfo Name="MinorVer">1</VersionInfo>
 						<VersionInfo Name="Release">0</VersionInfo>
 						<VersionInfo Name="Build">0</VersionInfo>
 						<VersionInfo Name="Debug">False</VersionInfo>
@@ -85,13 +85,13 @@
 					<VersionInfoKeys>
 						<VersionInfoKeys Name="CompanyName">Crisalid</VersionInfoKeys>
 						<VersionInfoKeys Name="FileDescription">Firebird Cloner can Clone Firebird Databases</VersionInfoKeys>
-						<VersionInfoKeys Name="FileVersion">1.0.0.0</VersionInfoKeys>
+						<VersionInfoKeys Name="FileVersion">1.1.0.0</VersionInfoKeys>
 						<VersionInfoKeys Name="InternalName">fbcloner</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalCopyright">©2009 - Crisalid</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalTrademarks">Firebird is registered by the Firebird Foundation</VersionInfoKeys>
 						<VersionInfoKeys Name="OriginalFilename"/>
 						<VersionInfoKeys Name="ProductName">FBCloner</VersionInfoKeys>
-						<VersionInfoKeys Name="ProductVersion">1.0</VersionInfoKeys>
+						<VersionInfoKeys Name="ProductVersion">1.1</VersionInfoKeys>
 						<VersionInfoKeys Name="Comments"/>
 					</VersionInfoKeys>
 					<Excluded_Packages>
