@@ -284,6 +284,7 @@ begin
 
   SrcTransaction := TUIBTransaction.Create(nil);
   SrcQuery := TUIBQuery.Create(nil);
+  SrcQuery.CachedFetch := false;
 
   DstTransaction := TUIBTransaction.Create(nil);
   try
