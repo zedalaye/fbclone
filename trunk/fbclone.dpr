@@ -338,7 +338,7 @@ begin
 
     AddLog('Create database (page_size %d)', [SrcDatabase.InfoPageSize]);
     DstDatabase.CharacterSet := data_charset;
-    DstDatabase.CreateDatabase(SrcDatabase.InfoPageSize, data_charset);
+    DstDatabase.CreateDatabase(data_charset, SrcDatabase.InfoPageSize);
 
     // ROLES
     for i := 0 to metadb.RolesCount - 1 do
