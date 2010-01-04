@@ -86,7 +86,7 @@
 						<VersionInfoKeys Name="FileDescription">Firebird Cloner can Clone Firebird Databases</VersionInfoKeys>
 						<VersionInfoKeys Name="FileVersion">1.2.1.0</VersionInfoKeys>
 						<VersionInfoKeys Name="InternalName">fbcloner</VersionInfoKeys>
-						<VersionInfoKeys Name="LegalCopyright">©2009 - Crisalid</VersionInfoKeys>
+						<VersionInfoKeys Name="LegalCopyright">©2009-2010 - Crisalid</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalTrademarks">Firebird is registered by the Firebird Foundation</VersionInfoKeys>
 						<VersionInfoKeys Name="OriginalFilename"/>
 						<VersionInfoKeys Name="ProductName">FBCloner</VersionInfoKeys>
