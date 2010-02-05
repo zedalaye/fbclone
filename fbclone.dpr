@@ -246,6 +246,7 @@ begin
   SrcDatabase.UserName := Source.Username;
   SrcDatabase.PassWord := Source.Password;
   SrcDatabase.CharacterSet := meta_charset;
+  SrcDatabase.Params.Add('no_garbage_collect');
 
   try
     SrcDatabase.Connected := true
