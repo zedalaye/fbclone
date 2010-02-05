@@ -2,7 +2,7 @@
 		<PropertyGroup>
 			<ProjectGuid>{B84A69A2-DCA4-4A82-9B7C-44D5C45A1061}</ProjectGuid>
 			<MainSource>fbclone.dpr</MainSource>
-			<Config Condition="'$(Config)'==''">Release</Config>
+			<Config Condition="'$(Config)'==''">Débogage</Config>
 			<DCC_DCCCompiler>DCC32</DCC_DCCCompiler>
 			<ProjectVersion>12.0</ProjectVersion>
 		</PropertyGroup>
@@ -64,7 +64,7 @@
 						<Parameters Name="UseLauncher">False</Parameters>
 						<Parameters Name="LoadAllSymbols">True</Parameters>
 						<Parameters Name="LoadUnspecifiedSymbols">False</Parameters>
-						<Parameters Name="RunParams">-v -s localhost:D:\test\sicar\NBDC.FDB -su SYSDBA -sp masterkey -t localhost:D:\test\sicar\NBDC_clone.FDB -tu SYSDBA -tp masterkey</Parameters>
+						<Parameters Name="RunParams">-v -s localhost:V:\BDCL.FDB -su SYSDBA -sp masterkey -t localhost:V:\BDCL.CLONE -tu SYSDBA -tp masterkey</Parameters>
 					</Parameters>
 					<VersionInfo>
 						<VersionInfo Name="IncludeVerInfo">True</VersionInfo>
