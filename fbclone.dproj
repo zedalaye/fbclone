@@ -64,7 +64,7 @@
 						<Parameters Name="UseLauncher">False</Parameters>
 						<Parameters Name="LoadAllSymbols">True</Parameters>
 						<Parameters Name="LoadUnspecifiedSymbols">False</Parameters>
-						<Parameters Name="RunParams">-v -s localhost:V:\BDCL.FDB -su SYSDBA -sp masterkey -t localhost:V:\BDCL.CLONE -tu SYSDBA -tp masterkey</Parameters>
+						<Parameters Name="RunParams">-v -s localhost:D:\BDD\Neptis10\Clients\BDCL.FDB -t localhost:D:\BDD\Neptis10\Clients\BDCL.M.FDB -po -f</Parameters>
 					</Parameters>
 					<VersionInfo>
 						<VersionInfo Name="IncludeVerInfo">True</VersionInfo>
@@ -97,6 +97,65 @@
 						<Excluded_Packages Name="$(BDS)\bin\dcloffice2k120.bpl">Composants Microsoft Office 2000 Sample Automation Server Wrapper</Excluded_Packages>
 						<Excluded_Packages Name="$(BDS)\bin\dclofficexp120.bpl">Composants Microsoft Office XP Sample Automation Server Wrapper</Excluded_Packages>
 					</Excluded_Packages>
+					<DebugEnvironmentVariables>
+						<DebugEnvironmentVariables Name="ISC_USER">&apos;SYSDBA&apos;</DebugEnvironmentVariables>
+						<DebugEnvironmentVariables Name="ISC_PASSWORD">&apos;masterkey&apos;</DebugEnvironmentVariables>
+					</DebugEnvironmentVariables>
+					<DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="ALLUSERSPROFILE">&apos;C:\ProgramData&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="APPDATA">&apos;C:\Users\Pierre\AppData\Roaming&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="BCB">&apos;c:\program files\embarcadero\rad studio\7.0&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="BDS">&apos;c:\program files\embarcadero\rad studio\7.0&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="BDSAppDataBaseDir">&apos;BDS&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="BDSCOMMONDIR">&apos;C:\Users\Public\Documents\RAD Studio\7.0&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="BDSPROJECTSDIR">&apos;D:\RAD Studio\Projets&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="BDSUSERDIR">&apos;D:\RAD Studio\7.0&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="CG_BOOST_ROOT">&apos;C:\Program Files\Embarcadero\RAD Studio\7.0\include\boost_1_39&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="CLASSPATH">&apos;.;C:\Program Files\Java\jre6\lib\ext\QTJava.zip&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="CommonProgramFiles">&apos;C:\Program Files\Common Files&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="COMPUTERNAME">&apos;ARISTIPPE&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="ComSpec">&apos;C:\Windows\system32\cmd.exe&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="DELPHI">&apos;c:\program files\embarcadero\rad studio\7.0&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="DFSTRACINGON">&apos;FALSE&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="FP_NO_HOST_CHECK">&apos;NO&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="GIT_SSH">&apos;C:\Program Files\TortoiseSVN\bin\TortoisePlink.exe&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="GTK_BASEPATH">&apos;C:\Program Files\GtkSharp\2.12\&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="HOME">&apos;D:\&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="HOMEDRIVE">&apos;C:&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="HOMEPATH">&apos;\Users\Pierre&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="LANGDIR">&apos;FR&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="LOCALAPPDATA">&apos;C:\Users\Pierre\AppData\Local&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="LOGONSERVER">&apos;\\ARISTIPPE&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="MOZ_PLUGIN_PATH">&apos;C:\Program Files\Virtools\3D Life Player&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="NUMBER_OF_PROCESSORS">&apos;2&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="OS">&apos;Windows_NT&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="Path">&apos;D:\Outils\DXGetText;C:\Program Files\Embarcadero\RAD Studio\7.0\bin;C:\Users\Public\Documents\RAD Studio\7.0\Bpl;C:\Program Files\CodeGear\RAD Studio\5.0\bin;C:\Users\Public\Documents\RAD Studio\5.0\Bpl;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Program Files\TortoiseSVN\bin;C:\Program Files\ATI Technologies\ATI.ACE\Core-Static;C:\Program Files\OPOS\Epson2;C:\Program Files\GtkSharp\2.12\bin;C:\Program Files\Embarcadero\Delphi Prism\bin;C:\Program Files\Embarcadero\Delphi Prism\bin;C:\Program Files\TortoiseHg;C:\Program Files\QuickTime\QTSystem\;C:\Users\Public\Documents\RAD Studio\6.0\Bpl;C:\Users\Public\Documents\RAD Studio\5.0\Bpl;D:\Outils\bin;D:\Subversion\bin;C:\Program Files\CVSNT\&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="PATHEXT">&apos;.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="PROCESSOR_ARCHITECTURE">&apos;x86&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="PROCESSOR_IDENTIFIER">&apos;x86 Family 6 Model 15 Stepping 6, GenuineIntel&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="PROCESSOR_LEVEL">&apos;6&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="PROCESSOR_REVISION">&apos;0f06&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="ProgramData">&apos;C:\ProgramData&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="ProgramFiles">&apos;C:\Program Files&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="PUBLIC">&apos;C:\Users\Public&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="QTJAVA">&apos;C:\Program Files\Java\jre6\lib\ext\QTJava.zip&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="SESSIONNAME">&apos;Console&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="SVN_SSH">&apos;&quot;C:\\Program Files\\TortoiseSVN\\bin\\TortoisePlink.exe&quot;&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="SystemDrive">&apos;C:&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="SystemRoot">&apos;C:\Windows&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="TEEINCPATH">&apos;D:\RAD Studio\Composants\Crisalid\teechart\Sources\..\Compiled\Delphi14\Include&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="TEELIBPATH">&apos;D:\RAD Studio\Composants\Crisalid\teechart\Sources\..\Compiled\Delphi14\Lib&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="TEMP">&apos;C:\Users\Pierre\AppData\Local\Temp&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="TMP">&apos;C:\Users\Pierre\AppData\Local\Temp&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="TRACE_FORMAT_SEARCH_PATH">&apos;\\NTREL202.ntdev.corp.microsoft.com\4F18C3A5-CA09-4DBD-B6FC-219FDD4C6BE0\TraceFormat&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="USERDOMAIN">&apos;Aristippe&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="USERNAME">&apos;Pierre&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="USERPROFILE">&apos;C:\Users\Pierre&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="VBOX_INSTALL_PATH">&apos;C:\Program Files\Sun\VirtualBox\&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="VS80COMNTOOLS">&apos;C:\Program Files\Microsoft Visual Studio 8\Common7\Tools\&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="VS90COMNTOOLS">&apos;C:\Program Files\Microsoft Visual Studio 9.0\Common7\Tools\&apos;</DebugSysEnvironmentVariables>
+						<DebugSysEnvironmentVariables Name="windir">&apos;C:\Windows&apos;</DebugSysEnvironmentVariables>
+					</DebugSysEnvironmentVariables>
 				</Delphi.Personality>
 			</BorlandProject>
 			<ProjectFileVersion>12</ProjectFileVersion>
