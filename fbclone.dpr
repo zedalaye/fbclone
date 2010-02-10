@@ -16,7 +16,6 @@ uses
   CxGetOpts;
 
 type
-  TLogCategory = (lcInfo, lcAction, lcResultat);
   TScriptResult = (srNothingDone, srEchec, srSucces, srAnnule);
 
   TDatabase = record
@@ -25,7 +24,7 @@ type
     Password: string;
   end;
 
-procedure TraceAction(const DB: string; const Action: String; Categorie: TLogCategory; Resultat: TScriptResult);
+procedure TraceAction(const Action: String; Resultat: TScriptResult);
 begin
   if Resultat = srEchec then
     WriteLn(ErrOutput, Action)
@@ -41,19 +40,19 @@ var
   FErrorsCount: Integer;
   SQLDump: TStringStream;
 
-  procedure AddLog(const What: string; Categorie: TLogCategory = lcInfo; Resultat: TScriptResult = srSucces); overload;
+  procedure AddLog(const What: string; Resultat: TScriptResult = srSucces); overload;
   begin
     if Verbose then
-      TraceAction(Source.ConnectionString, What, Categorie, Resultat);
+      TraceAction(What, Resultat);
   end;
 
-  procedure AddLog(const FmtStr: String; const Args: array of const; Categorie: TLogCategory = lcInfo; Resultat: TScriptResult = srSucces); overload;
+  procedure AddLog(const FmtStr: String; const Args: array of const; Resultat: TScriptResult = srSucces); overload;
   begin
-    AddLog(Format(FmtStr, Args), Categorie, Resultat);
+    AddLog(Format(FmtStr, Args), Resultat);
   end;
 
   procedure PumpData(dbhandle: IscDbHandle; mdb: TMetaDataBase;
-    failsafe: Boolean; commit_interval: Integer; sorttables: Boolean);
+    charset: TCharacterSet; failsafe: Boolean; commit_interval: Integer; sorttables: Boolean);
   var
     T,F,c,l: Integer;
     done: Integer;
@@ -63,26 +62,44 @@ var
     blhandle: IscBlobHandle;
     Table: TMetaTable;
 
-  function TablesCount: Integer;
-  begin
-    if sorttables then
-      Result := mdb.SortedTablesCount
-    else
-      Result := mdb.TablesCount;
-  end;
+    function TablesCount: Integer;
+    begin
+      if sorttables then
+        Result := mdb.SortedTablesCount
+      else
+        Result := mdb.TablesCount;
+    end;
 
-  function Tables(const Index: Integer): TMetaTable;
-  begin
-    if sorttables then
-      Result := mdb.SortedTables[Index]
-    else
-      Result := mdb.Tables[Index];
-  end;
+    function Tables(const Index: Integer): TMetaTable;
+    begin
+      if sorttables then
+        Result := mdb.SortedTables[Index]
+      else
+        Result := mdb.Tables[Index];
+    end;
+
+    procedure LogError(E: EUIBError; Q: TUIBQuery);
+    var
+      c: Integer;
+    begin
+      AddLog('--- failed ---', srEchec);
+      AddLog('ErrorCode = %d' + ''#13''#10'' + 'SQLCode = %d', [E.ErrorCode, E.SQLCode], srEchec);
+      AddLog(e.Message, srEchec);
+      AddLog('--- source fields values ---', srEchec);
+      for c := 0 to Q.Fields.FieldCount - 1 do
+        case Q.Fields.FieldType[c] of
+          uftBlob, uftBlobId:
+            AddLog('%s = [BLOB]', [Q.Fields.AliasName[c]], srEchec);
+          uftArray:
+            AddLog('%s = [ARRAY]', [Q.Fields.AliasName[c]], srEchec)
+          else
+            AddLog('%s = %s', [Q.Fields.AliasName[c], Q.Fields.AsString[c]], srEchec);
+        end;
+      AddLog('--- rolling back record and continue ---', srEchec);
+
+    end;
 
   begin
-    DstTransaction.StartTransaction;
-    trhandle := DstTransaction.TrHandle;
-
     for T := 0 to TablesCount - 1 do
     try
       Table := Tables(T);
@@ -130,8 +147,6 @@ var
           sthandle := nil;
           DSQLAllocateStatement(dbhandle, sthandle);
 
-          DSQLPrepare(dbhandle, trhandle, sthandle,  MBUEncode(sql, CharacterSetCP[csISO8859_1]), 3, nil);
-
           done := 0;
           while not SrcQuery.Eof do
           begin
@@ -161,30 +176,23 @@ var
               end;
 
             try
+              if not DstTransaction.InTransaction then
+              begin
+                DstTransaction.StartTransaction;
+                trhandle := DstTransaction.TrHandle;
+                DSQLPrepare(dbhandle, trhandle, sthandle,  MBUEncode(sql, CharacterSetCP[charset]), 3, nil);
+              end;
               DSQLExecute(trhandle, sthandle, 3, SrcQuery.Fields);
               Inc(done);
               if failsafe or (done mod commit_interval = 0) then
               begin
                 DstTransaction.Commit;
-                AddLog('Pumped %d records',[done]);
+                Write('Pumped ', done, ' records' + #13);
               end;
             except
               on E: EUIBError do
               begin
-                AddLog('--- failed ---', lcInfo, srEchec);
-                AddLog('ErrorCode = %d' + ''#13''#10'' + 'SQLCode = %d', [E.ErrorCode, E.SQLCode], lcResultat, srEchec);
-                AddLog(e.Message, lcResultat, srEchec);
-                AddLog('--- source fields values ---', lcResultat, srEchec);
-                for c := 0 to SrcQuery.Fields.FieldCount - 1 do
-                  case SrcQuery.Fields.FieldType[c] of
-                    uftBlob, uftBlobId:
-                      AddLog('%s = [BLOB]', [SrcQuery.Fields.AliasName[c]], lcResultat, srEchec);
-                    uftArray:
-                      AddLog('%s = [ARRAY]', [SrcQuery.Fields.AliasName[c]], lcResultat, srEchec)
-                    else
-                      AddLog('%s = %s', [SrcQuery.Fields.AliasName[c], SrcQuery.Fields.AsString[c]], lcResultat, srEchec);
-                  end;
-                AddLog('--- rolling back record and continue ---', lcResultat, srEchec);
+                LogError(E, SrcQuery);
                 DstTransaction.RollBack;
                 Inc(FErrorsCount);
               end;
@@ -192,16 +200,35 @@ var
 
             SrcQuery.Next;
           end;
+
+          if DstTransaction.InTransaction then
+          begin
+            try
+              DstTransaction.Commit;
+              Write('Pumped ', done, ' records' + #13);
+            except
+              on E: EUIBError do
+              begin
+                LogError(E, SrcQuery);
+                DstTransaction.RollBack;
+                Inc(FErrorsCount);
+              end;
+            end;
+          end;
+
+          WriteLn;
+
           DSQLFreeStatement(sthandle, DSQL_drop);
         end;
       end;
-      SrcQuery.Close(etmStayIn);
+
+      SrcQuery.Close(etmCommit);
     except
       on E: Exception do
       begin
-        AddLog('--- failed ---', lcResultat, srEchec);
-        AddLog(e.Message, lcResultat, srEchec);
-        AddLog('--------------', lcResultat, srEchec);
+        AddLog('--- failed ---', srEchec);
+        AddLog(e.Message, srEchec);
+        AddLog('--------------', srEchec);
         Inc(FErrorsCount);
         Continue;
       end;
@@ -222,11 +249,11 @@ var
     except
       on e: Exception do
       begin
-        AddLog('--- failed ---', lcResultat, srEchec);
-        AddLog(sql, lcResultat, srEchec);
-        AddLog('---  exception  ---', lcResultat, srEchec);
-        AddLog(e.Message, lcResultat, srEchec);
-        AddLog('--------------', lcResultat, srEchec);
+        AddLog('--- failed ---', srEchec);
+        AddLog(sql, srEchec);
+        AddLog('---  exception  ---', srEchec);
+        AddLog(e.Message, srEchec);
+        AddLog('--------------', srEchec);
         inc(FErrorsCount);
       end;
     end;
@@ -265,6 +292,7 @@ begin
   DstDatabase.UserName := Target.Username;
   DstDatabase.PassWord := Target.Password;
   DstDatabase.CharacterSet := meta_charset;
+  DstDatabase.Params.Add('set_page_buffers=50');
 
   try
     DstDatabase.Connected := true;
@@ -291,10 +319,12 @@ begin
 
   DstTransaction := TUIBTransaction.Create(nil);
   try
+    SrcTransaction.Options := [tpConcurrency, tpNoWait, tpRecVersion, tpRead];
     SrcTransaction.DataBase := SrcDatabase;
     SrcQuery.Transaction := SrcTransaction;
     SrcQuery.FetchBlobs := true;
 
+    DstTransaction.Options := [tpWrite, tpReadCommitted, tpNoAutoUndo];
     DstTransaction.DataBase := DstDatabase;
 
     if meta_charset = csNONE then
@@ -373,13 +403,6 @@ begin
         ExecuteImmediate(metadb.Generators[i].AsCreateDLL);
       end;
 
-      // GENERATORS VALUES
-      for i := 0 to metadb.GeneratorsCount - 1 do
-      begin
-        AddLog('Alter Generator: %s', [metadb.Generators[i].Name]);
-        ExecuteImmediate(metadb.Generators[i].AsAlterDDL);
-      end;
-
       // EXEPTIONS
       for i := 0 to metadb.ExceptionsCount - 1 do
       begin
@@ -412,7 +435,14 @@ begin
     // TABLES DATA
     dbhandle := DstDatabase.DbHandle;
     DstTransaction.Commit;
-    PumpData(dbhandle, metadb, failsafe, CommitInterval, PumpOnly); // Sort Tables by Foreign Keys in case of Data Pump (constraints already exists)
+    PumpData(dbhandle, metadb, data_charset, failsafe, CommitInterval, PumpOnly); // Sort Tables by Foreign Keys in case of Data Pump (constraints already exists)
+
+    // GENERATORS VALUES
+    for i := 0 to metadb.GeneratorsCount - 1 do
+    begin
+      AddLog('Alter Generator: %s', [metadb.Generators[i].Name]);
+      ExecuteImmediate(metadb.Generators[i].AsAlterDDL);
+    end;
 
     if not PumpOnly then
     begin
@@ -535,30 +565,31 @@ begin
     DstDatabase.Free;
     if FErrorsCount > 0 then
     begin
-      AddLog('--- %d error(s) ! ---', [FErrorsCount], lcResultat, srEchec);
+      AddLog('--- %d error(s) ! ---', [FErrorsCount], srEchec);
       Result := False;
     end;
   end;
 end;
 
-function ReadEnvironment(const Name: string): string;
-var
-  BufSize: Integer;  // buffer size required for value
-begin
-  // Get required buffer size (inc. terminal #0)
-  BufSize := GetEnvironmentVariable(PChar(Name), nil, 0);
-  if BufSize > 0 then
-  begin
-    // Read env var value into result string
-    SetLength(Result, BufSize - 1);
-    GetEnvironmentVariable(PChar(Name), PChar(Result), BufSize);
-  end
-  else
-    // No such environment variable
-    Result := '';
-end;
-
 procedure MapEnvironment(var D: TDatabase);
+
+  function ReadEnvironment(const Name: string): string;
+  var
+    BufSize: Integer;  // buffer size required for value
+  begin
+    // Get required buffer size (inc. terminal #0)
+    BufSize := GetEnvironmentVariable(PChar(Name), nil, 0);
+    if BufSize > 0 then
+    begin
+      // Read env var value into result string
+      SetLength(Result, BufSize - 1);
+      GetEnvironmentVariable(PChar(Name), PChar(Result), BufSize);
+    end
+    else
+      // No such environment variable
+      Result := '';
+  end;
+
 begin
   if D.Username = '' then
     D.Username := ReadEnvironment('ISC_USER');
