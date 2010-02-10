@@ -32,7 +32,7 @@ begin
     WriteLn(Action);
 end;
 
-function Clone(const Source, Target: TDatabase; const DataCharset, MetaCharset: string; Verbose: Boolean; PumpOnly: Boolean; FailSafe: Boolean; CommitInterval: Integer; const DumpFile: string): Boolean;
+function Clone(const Source, Target: TDatabase; PageSize: Integer; const DataCharset, MetaCharset: string; Verbose: Boolean; PumpOnly: Boolean; FailSafe: Boolean; CommitInterval: Integer; const DumpFile: string): Boolean;
 var
   SrcDatabase, DstDatabase: TUIBDatabase;
   SrcTransaction, DstTransaction: TUIBTransaction;
@@ -83,7 +83,7 @@ var
       c: Integer;
     begin
       AddLog('--- failed ---', srEchec);
-      AddLog('ErrorCode = %d' + ''#13''#10'' + 'SQLCode = %d', [E.ErrorCode, E.SQLCode], srEchec);
+      AddLog('ErrorCode = %d' + #13#10 + 'SQLCode = %d', [E.ErrorCode, E.SQLCode], srEchec);
       AddLog(e.Message, srEchec);
       AddLog('--- source fields values ---', srEchec);
       for c := 0 to Q.Fields.FieldCount - 1 do
@@ -96,14 +96,22 @@ var
             AddLog('%s = %s', [Q.Fields.AliasName[c], Q.Fields.AsString[c]], srEchec);
         end;
       AddLog('--- rolling back record and continue ---', srEchec);
+    end;
 
+    procedure CheckDstTransaction;
+    begin
+      if not DstTransaction.InTransaction then
+      begin
+        DstTransaction.StartTransaction;
+        trhandle := DstTransaction.TrHandle;
+      end;
     end;
 
   begin
     for T := 0 to TablesCount - 1 do
     try
       Table := Tables(T);
-      AddLog('Filling Table: %s', [Table.Name]);
+      AddLog('  Table %s', [Table.Name]);
       sql := 'select ';
       c := 0;
       for F := 0 to Table.FieldsCount - 1 do
@@ -144,8 +152,11 @@ var
 
         with DstDatabase.Lib do
         begin
+          CheckDstTransaction;
+
           sthandle := nil;
           DSQLAllocateStatement(dbhandle, sthandle);
+          DSQLPrepare(dbhandle, trhandle, sthandle,  MBUEncode(sql, CharacterSetCP[charset]), 3, nil);
 
           done := 0;
           while not SrcQuery.Eof do
@@ -157,6 +168,7 @@ var
                   begin
                     if (not SrcQuery.Fields.IsNull[F]) then
                     begin
+                      CheckDstTransaction;
                       blhandle := nil;
                       TSQLDA(SrcQuery.Fields).AsQuad[F] := BlobCreate(dbhandle, trhandle, blhandle);
                       BlobWriteSegment(blhandle, SrcQuery.Fields.BlobData[F].Size, SrcQuery.Fields.BlobData[F].Buffer);
@@ -169,6 +181,7 @@ var
             for F := 0 to SrcQuery.Fields.ArrayCount - 1 do
               if (not SrcQuery.Fields.IsNull[SrcQuery.Fields.ArrayInfos[F].index]) then
               begin
+                CheckDstTransaction;
                 l := SrcQuery.Fields.ArrayInfos[F].index;
                 TSQLDA(SrcQuery.Fields).AsQuad[l] := QuadNull;
                 TSQLDA(SrcQuery.Fields).IsNull[l] := false;
@@ -176,24 +189,19 @@ var
               end;
 
             try
-              if not DstTransaction.InTransaction then
-              begin
-                DstTransaction.StartTransaction;
-                trhandle := DstTransaction.TrHandle;
-                DSQLPrepare(dbhandle, trhandle, sthandle,  MBUEncode(sql, CharacterSetCP[charset]), 3, nil);
-              end;
+              CheckDstTransaction;
               DSQLExecute(trhandle, sthandle, 3, SrcQuery.Fields);
               Inc(done);
               if failsafe or (done mod commit_interval = 0) then
               begin
                 DstTransaction.Commit;
-                Write('Pumped ', done, ' records' + #13);
+                Write('    ', done, ' records' + #13);
               end;
             except
               on E: EUIBError do
               begin
                 LogError(E, SrcQuery);
-                DstTransaction.RollBack;
+                DstTransaction.Commit;
                 Inc(FErrorsCount);
               end;
             end;
@@ -205,12 +213,12 @@ var
           begin
             try
               DstTransaction.Commit;
-              Write('Pumped ', done, ' records' + #13);
+              Write('    ', done, ' records' + #13);
             except
               on E: EUIBError do
               begin
                 LogError(E, SrcQuery);
-                DstTransaction.RollBack;
+//                DstTransaction.RollBack;
                 Inc(FErrorsCount);
               end;
             end;
@@ -276,13 +284,28 @@ begin
   SrcDatabase.CharacterSet := meta_charset;
   SrcDatabase.Params.Add('no_garbage_collect');
 
+  AddLog('Source connection' + #13#10 +
+         '  Database %s'  + #13#10 +
+         '  Username %s'  + #13#10 +
+         '  Page Size %d' + #13#10 +
+         '  Client %s'    + #13#10 +
+         '  Server %s',
+    [
+      Source.ConnectionString,
+      Source.Username,
+      SrcDatabase.InfoPageSize,
+      SrcDatabase.InfoVersion,
+      SrcDatabase.InfoFirebirdVersion
+    ]
+  );
+
   try
     SrcDatabase.Connected := true
   except
     on E: EUIBError do
     begin
-      WriteLn('Impossible de se connecter à la base de données source ' + Source.ConnectionString + #13#10 +
-              E.Message);
+      AddLog('Cannot connect source database %s' + #13#10 +
+             '%s', [Source.ConnectionString, E.Message], srEchec);
       Exit;
     end;
   end;
@@ -296,7 +319,26 @@ begin
 
   try
     DstDatabase.Connected := true;
-    if not PumpOnly then
+    if PumpOnly then
+    begin
+      AddLog(#13#10 +
+             'Target connection' + #13#10 +
+             '  Database %s'  + #13#10 +
+             '  Username %s'  + #13#10 +
+             '  Page Size %d' + #13#10 +
+             '  Client %s'    + #13#10 +
+             '  Server %s',
+        [
+          Target.ConnectionString,
+          Target.Username,
+          DstDatabase.InfoPageSize,
+          DstDatabase.InfoVersion,
+          DstDatabase.InfoFirebirdVersion
+        ]
+      );
+    end
+    else
+    begin
       try
         DstDatabase.DropDatabase;
       except
@@ -307,6 +349,7 @@ begin
           Exit;
         end;
       end;
+    end;
   except
     { si on ne peut pas se connecter c'est que la base n'existe pas ! tout baigne }
   end;
@@ -319,7 +362,7 @@ begin
 
   DstTransaction := TUIBTransaction.Create(nil);
   try
-    SrcTransaction.Options := [tpConcurrency, tpNoWait, tpRecVersion, tpRead];
+    SrcTransaction.Options := [tpRead, tpConcurrency];
     SrcTransaction.DataBase := SrcDatabase;
     SrcQuery.Transaction := SrcTransaction;
     SrcQuery.FetchBlobs := true;
@@ -371,187 +414,227 @@ begin
 
     if not PumpOnly then
     begin
-      AddLog('Create database (page_size %d)', [SrcDatabase.InfoPageSize]);
+      if PageSize = 0 then
+        PageSize := SrcDatabase.InfoPageSize;
+
       DstDatabase.CharacterSet := data_charset;
-      DstDatabase.CreateDatabase(data_charset, SrcDatabase.InfoPageSize);
+      DstDatabase.CreateDatabase(data_charset, PageSize);
+
+      AddLog(#13#10 +
+             'Create Target'  + #13#10 +
+             '  Database %s'  + #13#10 +
+             '  Username %s'  + #13#10 +
+             '  Page Size %d' + #13#10 +
+             '  Client %s'    + #13#10 +
+             '  Server %s',
+        [
+          Target.ConnectionString,
+          Target.Username,
+          DstDatabase.InfoPageSize,
+          DstDatabase.InfoVersion,
+          DstDatabase.InfoFirebirdVersion
+        ]
+      );
 
       // ROLES
+      AddLog(#13#10 + 'Create Roles');
       for i := 0 to metadb.RolesCount - 1 do
       begin
-        AddLog('Create role: %s', [metadb.Roles[i].Name]);
+        AddLog('  %s', [metadb.Roles[i].Name]);
         ExecuteImmediate(metadb.Roles[i].AsFullDDL);
       end;
 
       // UDF
+      AddLog(#13#10 + 'Create UDF');
       for i := 0 to metadb.UDFSCount - 1 do
       begin
-        AddLog('Create UDF: %s', [metadb.UDFS[i].Name]);
+        AddLog('  %s', [metadb.UDFS[i].Name]);
         ExecuteImmediate(metadb.UDFS[i].AsFullDDL);
       end;
 
       // DOMAINS
+      AddLog(#13#10 + 'Create Domains');
       for i := 0 to metadb.DomainsCount - 1 do
       begin
-        AddLog('Create Domain: %s', [metadb.Domains[i].Name]);
+        AddLog('  %s', [metadb.Domains[i].Name]);
         ExecuteImmediate(metadb.Domains[i].AsFullDDL);
       end;
 
       // GENERATORS
+      AddLog(#13#10 + 'Create Generators');
       for i := 0 to metadb.GeneratorsCount - 1 do
       begin
-        AddLog('Create Generator: %s', [metadb.Generators[i].Name]);
+        AddLog('  %s', [metadb.Generators[i].Name]);
         ExecuteImmediate(metadb.Generators[i].AsCreateDLL);
       end;
 
       // EXEPTIONS
+      AddLog(#13#10 + 'Create Exceptions');
       for i := 0 to metadb.ExceptionsCount - 1 do
       begin
-        AddLog('Create Exception: %s', [metadb.Exceptions[i].Name]);
+        AddLog('  %s', [metadb.Exceptions[i].Name]);
         ExecuteImmediate(metadb.Exceptions[i].AsFullDDL);
       end;
 
       // EMPTY PROCEDURES
+      AddLog(#13#10 + 'Create Empty Procedures');
       for i := 0 to metadb.ProceduresCount - 1 do
       begin
-        AddLog('Create Empty Procedure: %s', [metadb.Procedures[i].Name]);
+        AddLog('  %s', [metadb.Procedures[i].Name]);
         ExecuteImmediate(metadb.Procedures[i].AsCreateEmptyDDL);
       end;
 
       // TABLES
+      AddLog(#13#10 + 'Create Tables');
       for i := 0 to metadb.TablesCount - 1 do
       begin
-        AddLog('Create Table: %s', [metadb.Tables[i].Name]);
+        AddLog('  %s', [metadb.Tables[i].Name]);
         ExecuteImmediate(metadb.Tables[i].AsFullDDLNode);
       end;
 
       // VIEWS
+      AddLog(#13#10 + 'Create Views');
       for i := 0 to metadb.ViewsCount - 1 do
       begin
-        AddLog('Create View: %s', [metadb.Views[i].Name]);
+        AddLog('  %s', [metadb.Views[i].Name]);
         ExecuteImmediate(metadb.Views[i].AsFullDDLNode);
       end;
     end;
 
     // TABLES DATA
+    AddLog(#13#10 + 'Pump Data');
     dbhandle := DstDatabase.DbHandle;
     DstTransaction.Commit;
     PumpData(dbhandle, metadb, data_charset, failsafe, CommitInterval, PumpOnly); // Sort Tables by Foreign Keys in case of Data Pump (constraints already exists)
 
     // GENERATORS VALUES
+    AddLog(#13#10 + 'Sync Generators');
     for i := 0 to metadb.GeneratorsCount - 1 do
     begin
-      AddLog('Alter Generator: %s', [metadb.Generators[i].Name]);
+      AddLog('  %s', [metadb.Generators[i].Name]);
       ExecuteImmediate(metadb.Generators[i].AsAlterDDL);
     end;
 
     if not PumpOnly then
     begin
       // UNIQUE
+      AddLog(#13#10 + 'Create Unique Indices');
       for i := 0 to metadb.TablesCount - 1 do
       for j := 0 to metadb.Tables[i].UniquesCount - 1 do
       begin
-        AddLog('Create Unique: %s', [metadb.Tables[i].Uniques[j].Name]);
+        AddLog('  %s', [metadb.Tables[i].Uniques[j].Name]);
         ExecuteImmediate(metadb.Tables[i].Uniques[j].AsFullDDL);
       end;
 
       // PRIMARY
+      AddLog(#13#10 + 'Create Primary Keys Constraints');
       for i := 0 to metadb.TablesCount - 1 do
       for j := 0 to metadb.Tables[i].PrimaryCount - 1 do
       begin
-        AddLog('Create Primary: %s', [metadb.Tables[i].Primary[j].Name]);
+        AddLog('  %s', [metadb.Tables[i].Primary[j].Name]);
         ExecuteImmediate(metadb.Tables[i].Primary[j].AsFullDDL);
       end;
 
       // FOREIGN
+      AddLog(#13#10 + 'Create Foreign Keys Constraints');
       for i := 0 to metadb.TablesCount - 1 do
       for j := 0 to metadb.Tables[i].ForeignCount - 1 do
       begin
-        AddLog('Create Foreign: %s', [metadb.Tables[i].Foreign[j].Name]);
+        AddLog('  %s', [metadb.Tables[i].Foreign[j].Name]);
         ExecuteImmediate(metadb.Tables[i].Foreign[j].AsFullDDL);
       end;
 
       // INDICES
+      AddLog(#13#10 + 'Create Indices');
       for i := 0 to metadb.TablesCount - 1 do
       for j := 0 to metadb.Tables[i].IndicesCount - 1 do
       begin
-        AddLog('Create Indice: %s', [metadb.Tables[i].Indices[j].Name]);
+        AddLog('  %s', [metadb.Tables[i].Indices[j].Name]);
         ExecuteImmediate(metadb.Tables[i].Indices[j].AsFullDDL);
       end;
 
       // CHECKS
+      AddLog(#13#10 + 'Create Check Constraints');
       for i := 0 to metadb.TablesCount - 1 do
       for j := 0 to metadb.Tables[i].ChecksCount - 1 do
       begin
-        AddLog('Create Check: %s', [metadb.Tables[i].Checks[j].Name]);
+        AddLog('  %s', [metadb.Tables[i].Checks[j].Name]);
         ExecuteImmediate(metadb.Tables[i].Checks[j].AsFullDDL);
       end;
 
       // TABLE TRIGGERS
+      AddLog(#13#10 + 'Create Triggers');
       for i := 0 to metadb.TablesCount - 1 do
       for j := 0 to metadb.Tables[i].TriggersCount - 1 do
       begin
-        AddLog('Create Trigger: %s', [metadb.Tables[i].Triggers[j].Name]);
+        AddLog('  %s', [metadb.Tables[i].Triggers[j].Name]);
         ExecuteImmediate(metadb.Tables[i].Triggers[j].AsFullDDL);
       end;
 
       // VIEW TRIGGERS
+      AddLog(#13#10 + 'Create Views');
       for i := 0 to metadb.ViewsCount - 1 do
       for j := 0 to metadb.Views[i].TriggersCount - 1 do
       begin
-        AddLog('Create Trigger: %s', [metadb.Views[i].Triggers[j].Name]);
+        AddLog('  %s', [metadb.Views[i].Triggers[j].Name]);
         ExecuteImmediate(metadb.Views[i].Triggers[j].AsFullDDL);
       end;
 
       // ALTER PROCEDURES
+      AddLog(#13#10 + 'Create Procedures Code');
       for i := 0 to metadb.ProceduresCount - 1 do
       begin
-        AddLog('Alter Procedure: %s', [metadb.Procedures[i].Name]);
+        AddLog('  %s', [metadb.Procedures[i].Name]);
         ExecuteImmediate(metadb.Procedures[i].AsAlterDDL);
       end;
 
       // GRANTS
+      AddLog(#13#10 + 'Grant Roles');
       for i := 0 to metadb.RolesCount - 1 do
       begin
         for j := 0 to metadb.Roles[i].GrantsCount - 1 do
         begin
-           AddLog('Grant To Role: %s', [metadb.Roles[i].Grants[j].Name]);
+           AddLog('  %s', [metadb.Roles[i].Grants[j].Name]);
            ExecuteImmediate(metadb.Roles[i].Grants[j].AsFullDDL);
         end;
       end;
 
+      AddLog(#13#10 + 'Grant Tables and Fields');
       for i := 0 to metadb.TablesCount - 1 do
       begin
         for j := 0 to metadb.Tables[i].GrantsCount - 1 do
         begin
-          AddLog('Grant To Table: %s', [metadb.Tables[i].Grants[j].Name]);
+          AddLog('  Table %s', [metadb.Tables[i].Grants[j].Name]);
           ExecuteImmediate(metadb.Tables[i].Grants[j].AsFullDDL);
         end;
         for j := 0 to metadb.Tables[i].FieldsGrantsCount - 1 do
         begin
-          AddLog('Grant To TableField: %s', [metadb.Tables[i].FieldsGrants[j].Name]);
+          AddLog('  Field: %s', [metadb.Tables[i].FieldsGrants[j].Name]);
           ExecuteImmediate(metadb.Tables[i].FieldsGrants[j].AsFullDDL);
         end;
       end;
 
+      AddLog(#13#10 + 'Grant Views and Fields');
       for i := 0 to metadb.ViewsCount - 1 do
       begin
         for j := 0 to metadb.Views[i].GrantsCount - 1 do
         begin
-          AddLog('Grant To View: %s', [metadb.Views[i].Grants[j].Name]);
+          AddLog('  View %s', [metadb.Views[i].Grants[j].Name]);
           ExecuteImmediate(metadb.Views[i].Grants[j].AsFullDDL);
         end;
         for j := 0 to metadb.Views[i].FieldsGrantsCount - 1 do
         begin
-          AddLog('Grant To ViewField: %s', [metadb.Views[i].FieldsGrants[j].Name]);
+          AddLog('  Field %s', [metadb.Views[i].FieldsGrants[j].Name]);
           ExecuteImmediate(metadb.Tables[i].FieldsGrants[j].AsFullDDL);
         end;
       end;
 
+      AddLog(#13#10 + 'Grant Procedures');
       for i := 0 to metadb.ProceduresCount - 1 do
       begin
         for j := 0 to metadb.Procedures[i].GrantsCount - 1 do
         begin
-          AddLog('Grant To Procedure: %s', [metadb.Procedures[i].Grants[j].Name]);
+          AddLog('  %s', [metadb.Procedures[i].Grants[j].Name]);
           ExecuteImmediate(metadb.Procedures[i].Grants[j].AsFullDDL);
         end;
       end;
@@ -608,6 +691,7 @@ var
   pump_only: Boolean;
   failsafe: Boolean;
   commit_interval: integer;
+  page_size: Integer;
 begin
   verbose := false;
   pump_only := false;
@@ -615,32 +699,36 @@ begin
   commit_interval := 10000;
   meta_charset := '';
   dump_file := '';
+  page_size := 0;
 
   GO := TGetOpt.Create;
   try
     try
-      GO.RegisterFlag('h', 'help', '', 'Affiche la description de tous les paramètres supportés par l''application', false);
-      GO.RegisterFlag('v', 'verbose', '', 'Affiche les détails de l''avancement du clonage', false);
+      GO.RegisterFlag('h',    'help',            '', 'Show this help message', false);
+      GO.RegisterFlag('v',    'verbose',         '', 'Show details', false);
 
-      GO.RegisterSwitch('s',  'source',      'database', 'Chaîne de connexion à la base de données source', true);
-      GO.RegisterSwitch('su', 'source-user', 'user', 'Login de connexion à la base de données source', false);
-      GO.RegisterSwitch('sp', 'source-password', 'password', 'Mot de passe de connexion à la base de données source', false);
+      GO.RegisterFlag('po',   'pump-only',       '', 'Pump data only from source database into target database (source database and target database must chare the same metadata structure)', false);
 
-      GO.RegisterSwitch('t',  'target',      'database', 'Chaîne de connexion à la base de données cible', true);
-      GO.RegisterSwitch('tu', 'target-user', 'user', 'Login de connexion à la base de données cible', false);
-      GO.RegisterSwitch('tp', 'target-password', 'password', 'Mot de passe de connexion à la base de données cible', false);
+      GO.RegisterSwitch('d',  'dump',            'file',      'Dump SQL script into file', false);
 
-      GO.RegisterSwitch('c', 'charset',  'charset',  'Jeu de caractères à utiliser pour la copie des données', false);
-      GO.RegisterSwitch('mc', 'metadata-charset', 'charset', 'Jeu de caractères à utiliser pour la connexion aux métadonnées de la base de données source', false);
+      GO.RegisterSwitch('ps', 'page-size',       'page size', 'Overrides target database page size', false);
 
-      GO.RegisterSwitch('u', 'user', 'user', 'Login de connexion aux bases de données source et cible', false);
-      GO.RegisterSwitch('p', 'password', 'password', 'Mot de passe de connexion aux bases de données source et cible', false);
+      GO.RegisterSwitch('s',  'source',          'database', 'Source database connection string', true);
+      GO.RegisterSwitch('su', 'source-user',     'user',     'Source database user name', false);
+      GO.RegisterSwitch('sp', 'source-password', 'password', 'Source database password', false);
 
-      GO.RegisterSwitch('d', 'dump', 'file', 'Dump SQL script into file', false);
+      GO.RegisterSwitch('t',  'target',          'database', 'Target database connection string', true);
+      GO.RegisterSwitch('tu', 'target-user',     'user',     'Target database user name', false);
+      GO.RegisterSwitch('tp', 'target-password', 'password', 'Target database password', false);
 
-      GO.RegisterFlag('po', 'pump-only', '', 'Ne trasnférer que les données (les bases de données source et destination doivent avoir la même structure', false);
-      GO.RegisterSwitch('ci', 'commit-interval', 'number', 'Committer la transaction tous les x enregistrements', false);
-      GO.RegisterFlag('f', 'failsafe', '', 'Comitter la transaction à chaque enregistrement', false);
+      GO.RegisterSwitch('c',  'charset',          'charset', 'Character set for data transfer', false);
+      GO.RegisterSwitch('mc', 'metadata-charset', 'charset', 'Character set used to access source database metadata', false);
+
+      GO.RegisterSwitch('u',  'user',     'user',     'Source and target databases user name', false);
+      GO.RegisterSwitch('p',  'password', 'password', 'Source and target databases password', false);
+
+      GO.RegisterFlag('f',    'failsafe',        '',          'Commit transaction every record (same as using -ci 1)', false);
+      GO.RegisterSwitch('ci', 'commit-interval', 'number',    'Commit transaction every <number> record', false);
 
       GO.Parse;
 
@@ -654,7 +742,7 @@ begin
 
       if not GO.Validate then
       begin
-        WriteLn('Il manque des arguments sur la ligne de commande :');
+        WriteLn('Missing parameters on command line:');
         for O in GO.Missing do
           WriteLn(' ', O.ToShortSyntax);
         WriteLn;
@@ -664,8 +752,8 @@ begin
 
       if GO.Flag['u'] and (GO.Flag['su'] or GO.Flag['tu']) then
       begin
-        WriteLn('Conflit entre les arguments sur la ligne de commande :');
-        WriteLn(' ', 'Les flags -tu et -su ne peuvent pas être utilisés avec le flag -u');
+        WriteLn('Conflict between parameters on command line:');
+        WriteLn(' ', 'Flags -tu and -su cannot be used with -u');
         WriteLn;
         GO.PrintSyntax;
         Exit;
@@ -673,11 +761,25 @@ begin
 
       if GO.Flag['p'] and (GO.Flag['sp'] or GO.Flag['tp']) then
       begin
-        WriteLn('Conflit entre les arguments sur la ligne de commande :');
-        WriteLn(' ', 'Les flags -tp et -sp ne peuvent pas être utilisés avec le flag -p');
+        WriteLn('Conflict between parameters on command line:');
+        WriteLn(' ', 'Flags -tp and -sp cannot be used with -p');
         WriteLn;
         GO.PrintSyntax;
         Exit;
+      end;
+
+      if GO.Flag['po'] and GO.Flag['ps'] then
+      begin
+        WriteLn('Useless flag on command line:');
+        WriteLn(' ', 'The flag -ps (Page Size) will be ignored if -po (Pump Only Mode) is specified');
+        WriteLn;
+      end;
+
+      if GO.Flag['f'] and GO.Flag['ci'] then
+      begin
+        WriteLn('Useless flag on command line:');
+        WriteLn(' ', 'The flag -ci (Commit Interval) will be ignored if -f (Failsafe Mode) is specified');
+        WriteLn;
       end;
 
       for P in GO.Parameters do
@@ -717,7 +819,9 @@ begin
         else if P.Key^.Short = 'f' then
           failsafe := true
         else if P.Key^.Short = 'ci' then
-          commit_interval := StrToInt(P.Value);
+          commit_interval := StrToInt(P.Value)
+        else if P.Key^.Short = 'ps' then
+          page_size := StrToInt(P.Value);
       end;
 
       MapEnvironment(src);
@@ -726,7 +830,7 @@ begin
     except
       on E: Exception do
       begin
-        WriteLn('Erreur sur la ligne de commande ' + E.Message);
+        WriteLn('Error on command line ' + E.Message);
         GO.PrintSyntax;
         Exit;
       end;
@@ -736,7 +840,7 @@ begin
   end;
 
   try
-    Clone(src, tgt, data_charset, meta_charset, verbose, pump_only, failsafe, commit_interval, dump_file);
+    Clone(src, tgt, page_size, data_charset, meta_charset, verbose, pump_only, failsafe, commit_interval, dump_file);
   except
     on E: Exception do
     begin
