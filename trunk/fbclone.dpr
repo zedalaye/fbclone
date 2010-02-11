@@ -24,6 +24,219 @@ type
     Password: string;
   end;
 
+  TPerformanceCounter = record
+  type
+    TDuration = record
+      value: Extended;
+      class operator Implicit(E: Extended): TDuration; {$IFDEF RELEASE}inline;{$ENDIF}
+      class operator Add(V1, V2: TDuration): TDuration; {$IFDEF RELEASE}inline;{$ENDIF}
+      class operator Add(V1: TDuration; V2: Extended): TDuration; {$IFDEF RELEASE}inline;{$ENDIF}
+      function ToString: String;
+    end;
+  private
+    counting: Boolean;
+    frequency: Int64;
+    start_time: Int64;
+  public
+    duration: TDuration;
+    last_duration: TDuration;
+    count: Cardinal;
+    last_count: Cardinal;
+    procedure Start; {$IFDEF RELEASE}inline;{$ENDIF}
+    function Stop: Extended; {$IFDEF RELEASE}inline;{$ENDIF}
+    procedure Reset;
+  end;
+
+  TPerformanceStats = record
+    transaction_setup: TPerformanceCounter;
+    transaction_commit: TPerformanceCounter;
+    prepare: TPerformanceCounter;
+    drop: TPerformanceCounter;
+    reading: TPerformanceCounter;
+    reading_prepare: TPerformanceCounter;
+    reading_commit: TPerformanceCounter;
+    writing: TPerformanceCounter;
+    blobs: TPerformanceCounter;
+    arrays: TPerformanceCounter;
+    function LastToString: String;
+    function GlobalToString: String;
+    procedure Reset;
+  end;
+
+  TOverallPerformanceStats = record
+    duration: TPerformanceCounter;
+    source_connection: TPerformanceCounter;
+    source_disconnection: TPerformanceCounter;
+    target_connection: TPerformanceCounter;
+    target_disconnection: TPerformanceCounter;
+    target_drop: TPerformanceCounter;
+    target_creation: TPerformanceCounter;
+    source_metadata: TPerformanceCounter;
+    data_pump: TPerformanceCounter;
+    meta_roles: TPerformanceCounter;
+    meta_functions: TPerformanceCounter;
+    meta_domains: TPerformanceCounter;
+    meta_generators: TPerformanceCounter;
+    meta_exceptions: TPerformanceCounter;
+    meta_procedures: TPerformanceCounter;
+    meta_tables: TPerformanceCounter;
+    meta_views: TPerformanceCounter;
+    meta_unique: TPerformanceCounter;
+    meta_primary: TPerformanceCounter;
+    meta_foreign: TPerformanceCounter;
+    meta_indices: TPerformanceCounter;
+    meta_triggers: TPerformanceCounter;
+    meta_checks: TPerformanceCounter;
+    meta_grants: TPerformanceCounter;
+  end;
+
+{ TPerformanceStats }
+
+procedure TPerformanceStats.Reset;
+begin
+  transaction_setup.Reset;
+  transaction_commit.Reset;
+  prepare.Reset;
+  drop.Reset;
+  reading.Reset;
+  reading_prepare.Reset;
+  reading_commit.Reset;
+  writing.Reset;
+  blobs.Reset;
+  arrays.Reset;
+end;
+
+function TPerformanceStats.LastToString: String;
+begin
+  Result :=
+    Format(
+      '  Transaction Setup    [%9d] %s' + #13#10 +
+      '  Transaction Commit   [%9d] %s' + #13#10 +
+      '  Statement Prepare    [%9d] %s' + #13#10 +
+      '  Statement Drop       [%9d] %s' + #13#10 +
+      '  Source Prepare       [%9d] %s' + #13#10 +
+      '  Source Data Read     [%9d] %s' + #13#10 +
+      '  Source Data Commit   [%9d] %s' + #13#10 +
+      '  Target Data Write    [%9d] %s' + #13#10 +
+      '  Target Blob Create   [%9d] %s' + #13#10 +
+      '  Target Arrays Create [%9d] %s',
+      [
+
+        transaction_setup.last_count, transaction_setup.last_duration.ToString,
+        transaction_commit.last_count, transaction_commit.last_duration.ToString,
+        prepare.last_count, prepare.last_duration.ToString,
+        drop.last_count, drop.last_duration.ToString,
+        reading_prepare.last_count, reading_prepare.last_duration.ToString,
+        reading.last_count, reading.last_duration.ToString,
+        reading_commit.last_count, reading_commit.last_duration.ToString,
+        writing.last_count, writing.last_duration.ToString,
+        blobs.last_count, blobs.last_duration.ToString,
+        arrays.last_count, arrays.last_duration.ToString
+      ]);
+end;
+
+function TPerformanceStats.GlobalToString: String;
+begin
+  Result :=
+    Format(
+      '  Transaction Setup    [%9d] %s' + #13#10 +
+      '  Transaction Commit   [%9d] %s' + #13#10 +
+      '  Statement Prepare    [%9d] %s' + #13#10 +
+      '  Statement Drop       [%9d] %s' + #13#10 +
+      '  Source Prepare       [%9d] %s' + #13#10 +
+      '  Source Data Read     [%9d] %s' + #13#10 +
+      '  Source Data Commit   [%9d] %s' + #13#10 +
+      '  Target Data Write    [%9d] %s' + #13#10 +
+      '  Target Blob Create   [%9d] %s' + #13#10 +
+      '  Target Arrays Create [%9d] %s',
+      [
+        transaction_setup.count, transaction_setup.duration.ToString,
+        transaction_commit.count, transaction_commit.duration.ToString,
+        prepare.count, prepare.duration.ToString,
+        drop.count, drop.duration.ToString,
+        reading_prepare.count, reading_prepare.duration.ToString,
+        reading.count, reading.duration.ToString,
+        reading_commit.count, reading_commit.duration.ToString,
+        writing.count, writing.duration.ToString,
+        blobs.count, blobs.duration.ToString,
+        arrays.count, arrays.duration.ToString
+      ]);
+end;
+
+{ TPerformanceCounter }
+
+procedure TPerformanceCounter.Start;
+begin
+  Assert(not counting, 'Cannot Start : Already Counting !');
+  counting := true;
+  Inc(count);
+  Inc(last_count);
+  frequency := 0;
+  start_time := 0;
+  QueryPerformanceFrequency(frequency);
+  QueryPerformanceCounter(start_time);
+end;
+
+function TPerformanceCounter.Stop: Extended;
+var
+  end_time: Int64;
+  d: Extended;
+begin
+  Assert(counting, 'Cannot Stop : Not Counting !');
+  QueryPerformanceCounter(end_time);
+  d := (end_time - start_time) / frequency;
+  last_duration := last_duration + d;
+  duration := duration + d;
+  Result := d;
+  counting := false;
+end;
+
+procedure TPerformanceCounter.Reset;
+begin
+  Assert(not counting, 'Cannot Reset : Already Counting !');
+  last_duration.value := 0;
+  last_count := 0;
+end;
+
+{ TPerformanceCounter.TDuration }
+
+class operator TPerformanceCounter.TDuration.Add(V1, V2: TDuration): TDuration;
+begin
+  Result.value := V1.value + V2.value;
+end;
+
+class operator TPerformanceCounter.TDuration.Add(V1: TDuration;
+  V2: Extended): TDuration;
+begin
+  Result.value := V1.value + V2;
+end;
+
+class operator TPerformanceCounter.TDuration.Implicit(E: Extended): TDuration;
+begin
+  Result.value := E;
+end;
+
+function TPerformanceCounter.TDuration.ToString: String;
+var
+  h,m,s: Integer;
+  ms: Extended;
+begin
+  s := Trunc(value);
+  m := s div 60;
+  s := s - (m * 60);
+  h := m div 60;
+  m := m - (h * 60);
+  ms := Frac(value);
+
+  if (h > 0) or (m > 0) or (s > 0) then
+    Result := Format('%.2d:%.2d:%07.4f', [h, m, s + ms])
+  else if ms > 0.00001 then
+    Result := Format('%13.4f ms', [ms * 1000])
+  else
+    Result := Format('%13d ms', [0]);
+end;
+
+
 procedure TraceAction(const Action: String; Resultat: TScriptResult);
 begin
   if Resultat = srEchec then
@@ -39,8 +252,9 @@ var
   SrcQuery: TUIBQuery;
   FErrorsCount: Integer;
   SQLDump: TStringStream;
+  Perfs: TOverallPerformanceStats;
 
-  procedure AddLog(const What: string; Resultat: TScriptResult = srSucces); overload;
+  procedure AddLog(const What: string = ''; Resultat: TScriptResult = srSucces); overload;
   begin
     if Verbose then
       TraceAction(What, Resultat);
@@ -61,6 +275,9 @@ var
     sthandle: IscStmtHandle;
     blhandle: IscBlobHandle;
     Table: TMetaTable;
+    S: TPerformanceStats;
+    LastDisplay: Cardinal;
+    first_blob: Integer;
 
     function TablesCount: Integer;
     begin
@@ -102,21 +319,30 @@ var
     begin
       if not DstTransaction.InTransaction then
       begin
-        DstTransaction.StartTransaction;
-        trhandle := DstTransaction.TrHandle;
+        S.transaction_setup.Start;
+          DstTransaction.StartTransaction;
+          trhandle := DstTransaction.TrHandle;
+        S.transaction_setup.Stop;
       end;
     end;
 
   begin
     for T := 0 to TablesCount - 1 do
     try
+      S.Reset;
+
       Table := Tables(T);
       AddLog('  Table %s', [Table.Name]);
+
+      first_blob := 0;
       sql := 'select ';
       c := 0;
       for F := 0 to Table.FieldsCount - 1 do
         if Table.Fields[F].ComputedSource = '' then
         begin
+          if Table.Fields[F].FieldType in [uftBlob, uftBlobId] then
+            first_blob := F;
+
           if (c = 0) then
             sql := sql + Table.Fields[F].Name
           else
@@ -124,7 +350,8 @@ var
           inc(c);
         end;
       sql := sql + ' from ' + Table.Name;
-      if Table.PrimaryCount > 0 then
+
+      if PumpOnly and (Table.PrimaryCount > 0) then
       begin
         c := 0;
         for F := 0 to Table.Primary[0].FieldsCount - 1 do
@@ -137,8 +364,18 @@ var
           Inc(c);
         end;
       end;
-      SrcQuery.SQL.Text := sql;
-      SrcQuery.Open;
+
+      done := 0;
+      LastDisplay := 0;
+
+      S.reading_prepare.Start;
+        SrcQuery.SQL.Text := sql;
+        SrcQuery.Prepare(true);
+      S.reading_prepare.Stop;
+
+      S.reading.Start;
+        SrcQuery.Open;
+      S.reading.Stop;
 
       if not (SrcQuery.Eof) then
       begin
@@ -154,83 +391,111 @@ var
         begin
           CheckDstTransaction;
 
-          sthandle := nil;
-          DSQLAllocateStatement(dbhandle, sthandle);
-          DSQLPrepare(dbhandle, trhandle, sthandle,  MBUEncode(sql, CharacterSetCP[charset]), 3, nil);
+          S.prepare.Start;
+            sthandle := nil;
+            DSQLAllocateStatement(dbhandle, sthandle);
+            DSQLPrepare(dbhandle, trhandle, sthandle,  MBUEncode(sql, CharacterSetCP[charset]), 3, nil);
+          S.prepare.Stop;
 
-          done := 0;
           while not SrcQuery.Eof do
           begin
             // recreate blobs
-            for F := 0 to SrcQuery.Fields.FieldCount - 1 do
-              case SrcQuery.Fields.FieldType[F] of
-                uftBlob, uftBlobId:
-                  begin
-                    if (not SrcQuery.Fields.IsNull[F]) then
+            if first_blob > 0 then
+              for F := first_blob to SrcQuery.Fields.FieldCount - 1 do
+                case SrcQuery.Fields.FieldType[F] of
+                  uftBlob, uftBlobId:
                     begin
-                      CheckDstTransaction;
-                      blhandle := nil;
-                      TSQLDA(SrcQuery.Fields).AsQuad[F] := BlobCreate(dbhandle, trhandle, blhandle);
-                      BlobWriteSegment(blhandle, SrcQuery.Fields.BlobData[F].Size, SrcQuery.Fields.BlobData[F].Buffer);
-                      BlobClose(blhandle);
-                    end;
-                  end
-              end;
+                      if (not SrcQuery.Fields.IsNull[F]) then
+                      begin
+                        CheckDstTransaction;
+                        S.blobs.Start;
+                          blhandle := nil;
+                          TSQLDA(SrcQuery.Fields).AsQuad[F] := BlobCreate(dbhandle, trhandle, blhandle);
+                          BlobWriteSegment(blhandle, SrcQuery.Fields.BlobData[F].Size, SrcQuery.Fields.BlobData[F].Buffer);
+                          BlobClose(blhandle);
+                        S.blobs.Stop;
+                      end;
+                    end
+                end;
 
             // recreate array
             for F := 0 to SrcQuery.Fields.ArrayCount - 1 do
               if (not SrcQuery.Fields.IsNull[SrcQuery.Fields.ArrayInfos[F].index]) then
               begin
                 CheckDstTransaction;
-                l := SrcQuery.Fields.ArrayInfos[F].index;
-                TSQLDA(SrcQuery.Fields).AsQuad[l] := QuadNull;
-                TSQLDA(SrcQuery.Fields).IsNull[l] := false;
-                ArrayPutSlice(dbhandle, trhandle, PGDSQuad(SrcQuery.Fields.Data.sqlvar[l].SqlData)^, SrcQuery.Fields.ArrayInfos[F].info, SrcQuery.Fields.ArrayData[l], SrcQuery.Fields.ArrayInfos[F].size);
+                S.arrays.Start;
+                  l := SrcQuery.Fields.ArrayInfos[F].index;
+                  TSQLDA(SrcQuery.Fields).AsQuad[l] := QuadNull;
+                  TSQLDA(SrcQuery.Fields).IsNull[l] := false;
+                  ArrayPutSlice(dbhandle, trhandle, PGDSQuad(SrcQuery.Fields.Data.sqlvar[l].SqlData)^, SrcQuery.Fields.ArrayInfos[F].info, SrcQuery.Fields.ArrayData[l], SrcQuery.Fields.ArrayInfos[F].size);
+                S.arrays.Stop;
               end;
 
             try
               CheckDstTransaction;
-              DSQLExecute(trhandle, sthandle, 3, SrcQuery.Fields);
+              S.writing.Start;
+                DSQLExecute(trhandle, sthandle, 3, SrcQuery.Fields);
+              S.writing.Stop;
+
               Inc(done);
+
               if failsafe or (done mod commit_interval = 0) then
               begin
-                DstTransaction.Commit;
+                S.transaction_commit.Start;
+                  DstTransaction.Commit;
+                S.transaction_commit.Stop;
+              end;
+
+              if GetTickCount - LastDisplay > 100 then
+              begin
                 Write('    ', done, ' records' + #13);
+                LastDisplay := GetTickCount;
               end;
             except
               on E: EUIBError do
               begin
                 LogError(E, SrcQuery);
-                DstTransaction.Commit;
+                S.transaction_commit.Start;
+                  DstTransaction.Commit;
+                S.transaction_commit.Stop;
                 Inc(FErrorsCount);
               end;
             end;
 
-            SrcQuery.Next;
+            S.reading.Start;
+              SrcQuery.Next;
+            S.reading.Stop;
           end;
 
           if DstTransaction.InTransaction then
           begin
             try
-              DstTransaction.Commit;
-              Write('    ', done, ' records' + #13);
+              S.transaction_commit.Start;
+                DstTransaction.Commit;
+              S.transaction_commit.Stop;
             except
               on E: EUIBError do
               begin
                 LogError(E, SrcQuery);
-//                DstTransaction.RollBack;
                 Inc(FErrorsCount);
               end;
             end;
           end;
 
-          WriteLn;
-
-          DSQLFreeStatement(sthandle, DSQL_drop);
+          S.drop.Start;
+            DSQLFreeStatement(sthandle, DSQL_drop);
+          S.drop.Stop;
         end;
       end;
 
-      SrcQuery.Close(etmCommit);
+      S.reading_commit.Start;
+        SrcQuery.Close(etmCommit);
+      S.reading_commit.Stop;
+
+      AddLog('    %d records', [done]);
+      AddLog(#13#10 +
+             'Stats' + #13#10 +
+             S.LastToString + #13#10);
     except
       on E: Exception do
       begin
@@ -241,6 +506,9 @@ var
         Continue;
       end;
     end;
+
+    AddLog(#13#10 + 'Global Stats');
+    AddLog(S.GlobalToString);
   end;
 
 var
@@ -268,6 +536,8 @@ var
   end;
 
 begin
+  Perfs.duration.Start;
+
   Result := true;
 
   FErrorsCount := 0;
@@ -284,23 +554,25 @@ begin
   SrcDatabase.CharacterSet := meta_charset;
   SrcDatabase.Params.Add('no_garbage_collect');
 
-  AddLog('Source connection' + #13#10 +
-         '  Database %s'  + #13#10 +
-         '  Username %s'  + #13#10 +
-         '  Page Size %d' + #13#10 +
-         '  Client %s'    + #13#10 +
-         '  Server %s',
-    [
-      Source.ConnectionString,
-      Source.Username,
-      SrcDatabase.InfoPageSize,
-      SrcDatabase.InfoVersion,
-      SrcDatabase.InfoFirebirdVersion
-    ]
-  );
-
   try
-    SrcDatabase.Connected := true
+    Perfs.source_connection.Start;
+      SrcDatabase.Connected := true;
+    Perfs.source_connection.Stop;
+
+    AddLog('Source connection' + #13#10 +
+           '  Database %s'  + #13#10 +
+           '  Username %s'  + #13#10 +
+           '  Page Size %d' + #13#10 +
+           '  Client %s'    + #13#10 +
+           '  Server %s',
+      [
+        Source.ConnectionString,
+        Source.Username,
+        SrcDatabase.InfoPageSize,
+        SrcDatabase.InfoVersion,
+        SrcDatabase.InfoFirebirdVersion
+      ]
+    );
   except
     on E: EUIBError do
     begin
@@ -318,7 +590,10 @@ begin
   DstDatabase.Params.Add('set_page_buffers=50');
 
   try
-    DstDatabase.Connected := true;
+    Perfs.target_connection.Start;
+      DstDatabase.Connected := true;
+    Perfs.target_connection.Stop;
+
     if PumpOnly then
     begin
       AddLog(#13#10 +
@@ -340,7 +615,9 @@ begin
     else
     begin
       try
-        DstDatabase.DropDatabase;
+        Perfs.target_drop.Start;
+          DstDatabase.DropDatabase;
+        Perfs.target_drop.Stop;
       except
         on E: EUIBError do
         begin
@@ -352,6 +629,7 @@ begin
     end;
   except
     { si on ne peut pas se connecter c'est que la base n'existe pas ! tout baigne }
+    Perfs.target_connection.Stop;
   end;
 
   metadb := TMetaDataBase.Create(nil,-1);
@@ -375,18 +653,32 @@ begin
       { En NONE on ne se permet de récupérer QUE le charset par défaut de la
         base de données, ensuite on se reconnecte avec le charset par défaut }
       metadb.OIDDatabases := [OIDDBCharset];
-      metadb.LoadFromDatabase(SrcTransaction);
+
+      Perfs.source_metadata.Start;
+        metadb.LoadFromDatabase(SrcTransaction);
+      Perfs.source_metadata.Stop;
+
       meta_charset := metadb.DefaultCharset;
       metadb.Free;
       metadb := TMetaDatabase.Create(nil, -1);
-      SrcDatabase.Connected := false;
+
+      Perfs.source_disconnection.Start;
+        SrcDatabase.Connected := false;
+      Perfs.source_disconnection.Stop;
+
       SrcDatabase.CharacterSet := meta_charset;
-      SrcDatabase.Connected := true;
+
+      Perfs.source_connection.Start;
+        SrcDatabase.Connected := true;
+      Perfs.source_connection.Stop;
     end;
 
     { Lit l'intégralité des métadonnées }
     metadb.OIDDatabases := ALLObjects;
-    metadb.LoadFromDatabase(SrcTransaction);
+
+    Perfs.source_metadata.Start;
+      metadb.LoadFromDatabase(SrcTransaction);
+    Perfs.source_metadata.Stop;
 
     { Ecrit le script SQL de création de la base de données dans le fichier }
     if DumpFile <> '' then
@@ -407,9 +699,15 @@ begin
 
     if data_charset <> meta_charset then
     begin
-      SrcDatabase.Connected := false;
+      Perfs.source_disconnection.Start;
+        SrcDatabase.Connected := false;
+      Perfs.source_disconnection.Stop;
+
       SrcDatabase.CharacterSet := data_charset;
-      SrcDatabase.Connected := true;
+
+      Perfs.source_connection.Start;
+        SrcDatabase.Connected := true;
+      Perfs.source_connection.Stop;
     end;
 
     if not PumpOnly then
@@ -418,7 +716,10 @@ begin
         PageSize := SrcDatabase.InfoPageSize;
 
       DstDatabase.CharacterSet := data_charset;
-      DstDatabase.CreateDatabase(data_charset, PageSize);
+
+      Perfs.target_creation.Start;
+        DstDatabase.CreateDatabase(data_charset, PageSize);
+      Perfs.target_creation.Stop;
 
       AddLog(#13#10 +
              'Create Target'  + #13#10 +
@@ -441,7 +742,9 @@ begin
       for i := 0 to metadb.RolesCount - 1 do
       begin
         AddLog('  %s', [metadb.Roles[i].Name]);
-        ExecuteImmediate(metadb.Roles[i].AsFullDDL);
+        Perfs.meta_roles.Start;
+          ExecuteImmediate(metadb.Roles[i].AsFullDDL);
+        Perfs.meta_roles.Stop;
       end;
 
       // UDF
@@ -449,7 +752,9 @@ begin
       for i := 0 to metadb.UDFSCount - 1 do
       begin
         AddLog('  %s', [metadb.UDFS[i].Name]);
-        ExecuteImmediate(metadb.UDFS[i].AsFullDDL);
+        Perfs.meta_functions.Start;
+          ExecuteImmediate(metadb.UDFS[i].AsFullDDL);
+        Perfs.meta_functions.Stop;
       end;
 
       // DOMAINS
@@ -457,7 +762,9 @@ begin
       for i := 0 to metadb.DomainsCount - 1 do
       begin
         AddLog('  %s', [metadb.Domains[i].Name]);
-        ExecuteImmediate(metadb.Domains[i].AsFullDDL);
+        Perfs.meta_domains.Start;
+          ExecuteImmediate(metadb.Domains[i].AsFullDDL);
+        Perfs.meta_domains.Stop;
       end;
 
       // GENERATORS
@@ -465,7 +772,9 @@ begin
       for i := 0 to metadb.GeneratorsCount - 1 do
       begin
         AddLog('  %s', [metadb.Generators[i].Name]);
-        ExecuteImmediate(metadb.Generators[i].AsCreateDLL);
+        Perfs.meta_generators.Start;
+          ExecuteImmediate(metadb.Generators[i].AsCreateDLL);
+        Perfs.meta_generators.Stop;
       end;
 
       // EXEPTIONS
@@ -473,7 +782,9 @@ begin
       for i := 0 to metadb.ExceptionsCount - 1 do
       begin
         AddLog('  %s', [metadb.Exceptions[i].Name]);
-        ExecuteImmediate(metadb.Exceptions[i].AsFullDDL);
+        Perfs.meta_exceptions.Start;
+          ExecuteImmediate(metadb.Exceptions[i].AsFullDDL);
+        Perfs.meta_exceptions.Stop;
       end;
 
       // EMPTY PROCEDURES
@@ -481,7 +792,9 @@ begin
       for i := 0 to metadb.ProceduresCount - 1 do
       begin
         AddLog('  %s', [metadb.Procedures[i].Name]);
-        ExecuteImmediate(metadb.Procedures[i].AsCreateEmptyDDL);
+        Perfs.meta_procedures.Start;
+          ExecuteImmediate(metadb.Procedures[i].AsCreateEmptyDDL);
+        Perfs.meta_procedures.Stop;
       end;
 
       // TABLES
@@ -489,7 +802,9 @@ begin
       for i := 0 to metadb.TablesCount - 1 do
       begin
         AddLog('  %s', [metadb.Tables[i].Name]);
-        ExecuteImmediate(metadb.Tables[i].AsFullDDLNode);
+        Perfs.meta_tables.Start;
+          ExecuteImmediate(metadb.Tables[i].AsFullDDLNode);
+        Perfs.meta_tables.Stop;
       end;
 
       // VIEWS
@@ -497,7 +812,9 @@ begin
       for i := 0 to metadb.ViewsCount - 1 do
       begin
         AddLog('  %s', [metadb.Views[i].Name]);
-        ExecuteImmediate(metadb.Views[i].AsFullDDLNode);
+        Perfs.meta_views.Start;
+          ExecuteImmediate(metadb.Views[i].AsFullDDLNode);
+        Perfs.meta_views.Stop;
       end;
     end;
 
@@ -505,14 +822,19 @@ begin
     AddLog(#13#10 + 'Pump Data');
     dbhandle := DstDatabase.DbHandle;
     DstTransaction.Commit;
-    PumpData(dbhandle, metadb, data_charset, failsafe, CommitInterval, PumpOnly); // Sort Tables by Foreign Keys in case of Data Pump (constraints already exists)
+
+    Perfs.data_pump.Start;
+      PumpData(dbhandle, metadb, data_charset, failsafe, CommitInterval, PumpOnly); // Sort Tables by Foreign Keys in case of Data Pump (constraints already exists)
+    Perfs.data_pump.Stop;
 
     // GENERATORS VALUES
     AddLog(#13#10 + 'Sync Generators');
     for i := 0 to metadb.GeneratorsCount - 1 do
     begin
       AddLog('  %s', [metadb.Generators[i].Name]);
-      ExecuteImmediate(metadb.Generators[i].AsAlterDDL);
+      Perfs.meta_generators.Start;
+        ExecuteImmediate(metadb.Generators[i].AsAlterDDL);
+      Perfs.meta_generators.Stop;
     end;
 
     if not PumpOnly then
@@ -523,7 +845,9 @@ begin
       for j := 0 to metadb.Tables[i].UniquesCount - 1 do
       begin
         AddLog('  %s', [metadb.Tables[i].Uniques[j].Name]);
-        ExecuteImmediate(metadb.Tables[i].Uniques[j].AsFullDDL);
+        Perfs.meta_unique.Start;
+          ExecuteImmediate(metadb.Tables[i].Uniques[j].AsFullDDL);
+        Perfs.meta_unique.Stop;
       end;
 
       // PRIMARY
@@ -532,7 +856,9 @@ begin
       for j := 0 to metadb.Tables[i].PrimaryCount - 1 do
       begin
         AddLog('  %s', [metadb.Tables[i].Primary[j].Name]);
-        ExecuteImmediate(metadb.Tables[i].Primary[j].AsFullDDL);
+        Perfs.meta_primary.Start;
+          ExecuteImmediate(metadb.Tables[i].Primary[j].AsFullDDL);
+        Perfs.meta_primary.Stop;
       end;
 
       // FOREIGN
@@ -541,7 +867,9 @@ begin
       for j := 0 to metadb.Tables[i].ForeignCount - 1 do
       begin
         AddLog('  %s', [metadb.Tables[i].Foreign[j].Name]);
-        ExecuteImmediate(metadb.Tables[i].Foreign[j].AsFullDDL);
+        Perfs.meta_foreign.Start;
+          ExecuteImmediate(metadb.Tables[i].Foreign[j].AsFullDDL);
+        Perfs.meta_foreign.Stop;
       end;
 
       // INDICES
@@ -550,7 +878,9 @@ begin
       for j := 0 to metadb.Tables[i].IndicesCount - 1 do
       begin
         AddLog('  %s', [metadb.Tables[i].Indices[j].Name]);
-        ExecuteImmediate(metadb.Tables[i].Indices[j].AsFullDDL);
+        Perfs.meta_indices.Start;
+          ExecuteImmediate(metadb.Tables[i].Indices[j].AsFullDDL);
+        Perfs.meta_indices.Stop;
       end;
 
       // CHECKS
@@ -559,7 +889,9 @@ begin
       for j := 0 to metadb.Tables[i].ChecksCount - 1 do
       begin
         AddLog('  %s', [metadb.Tables[i].Checks[j].Name]);
-        ExecuteImmediate(metadb.Tables[i].Checks[j].AsFullDDL);
+        Perfs.meta_checks.Start;
+          ExecuteImmediate(metadb.Tables[i].Checks[j].AsFullDDL);
+        Perfs.meta_checks.Stop;
       end;
 
       // TABLE TRIGGERS
@@ -568,7 +900,9 @@ begin
       for j := 0 to metadb.Tables[i].TriggersCount - 1 do
       begin
         AddLog('  %s', [metadb.Tables[i].Triggers[j].Name]);
-        ExecuteImmediate(metadb.Tables[i].Triggers[j].AsFullDDL);
+        Perfs.meta_triggers.Start;
+          ExecuteImmediate(metadb.Tables[i].Triggers[j].AsFullDDL);
+        Perfs.meta_triggers.Stop;
       end;
 
       // VIEW TRIGGERS
@@ -577,7 +911,9 @@ begin
       for j := 0 to metadb.Views[i].TriggersCount - 1 do
       begin
         AddLog('  %s', [metadb.Views[i].Triggers[j].Name]);
-        ExecuteImmediate(metadb.Views[i].Triggers[j].AsFullDDL);
+        Perfs.meta_triggers.Start;
+          ExecuteImmediate(metadb.Views[i].Triggers[j].AsFullDDL);
+        Perfs.meta_triggers.Stop;
       end;
 
       // ALTER PROCEDURES
@@ -585,17 +921,20 @@ begin
       for i := 0 to metadb.ProceduresCount - 1 do
       begin
         AddLog('  %s', [metadb.Procedures[i].Name]);
-        ExecuteImmediate(metadb.Procedures[i].AsAlterDDL);
+        Perfs.meta_procedures.Start;
+          ExecuteImmediate(metadb.Procedures[i].AsAlterDDL);
+        Perfs.meta_procedures.Stop;
       end;
 
-      // GRANTS
-      AddLog(#13#10 + 'Grant Roles');
+      // GRANTS               AddLog(#13#10 + 'Grant Roles');
       for i := 0 to metadb.RolesCount - 1 do
       begin
         for j := 0 to metadb.Roles[i].GrantsCount - 1 do
         begin
            AddLog('  %s', [metadb.Roles[i].Grants[j].Name]);
-           ExecuteImmediate(metadb.Roles[i].Grants[j].AsFullDDL);
+           Perfs.meta_grants.Start;
+             ExecuteImmediate(metadb.Roles[i].Grants[j].AsFullDDL);
+           Perfs.meta_grants.Stop;
         end;
       end;
 
@@ -605,12 +944,16 @@ begin
         for j := 0 to metadb.Tables[i].GrantsCount - 1 do
         begin
           AddLog('  Table %s', [metadb.Tables[i].Grants[j].Name]);
-          ExecuteImmediate(metadb.Tables[i].Grants[j].AsFullDDL);
+          Perfs.meta_grants.Start;
+            ExecuteImmediate(metadb.Tables[i].Grants[j].AsFullDDL);
+          Perfs.meta_grants.Stop;
         end;
         for j := 0 to metadb.Tables[i].FieldsGrantsCount - 1 do
         begin
           AddLog('  Field: %s', [metadb.Tables[i].FieldsGrants[j].Name]);
-          ExecuteImmediate(metadb.Tables[i].FieldsGrants[j].AsFullDDL);
+          Perfs.meta_grants.Start;
+            ExecuteImmediate(metadb.Tables[i].FieldsGrants[j].AsFullDDL);
+          Perfs.meta_grants.Stop;
         end;
       end;
 
@@ -620,12 +963,16 @@ begin
         for j := 0 to metadb.Views[i].GrantsCount - 1 do
         begin
           AddLog('  View %s', [metadb.Views[i].Grants[j].Name]);
-          ExecuteImmediate(metadb.Views[i].Grants[j].AsFullDDL);
+          Perfs.meta_grants.Start;
+            ExecuteImmediate(metadb.Views[i].Grants[j].AsFullDDL);
+          Perfs.meta_grants.Stop;
         end;
         for j := 0 to metadb.Views[i].FieldsGrantsCount - 1 do
         begin
           AddLog('  Field %s', [metadb.Views[i].FieldsGrants[j].Name]);
-          ExecuteImmediate(metadb.Tables[i].FieldsGrants[j].AsFullDDL);
+          Perfs.meta_grants.Start;
+            ExecuteImmediate(metadb.Tables[i].FieldsGrants[j].AsFullDDL);
+          Perfs.meta_grants.Stop;
         end;
       end;
 
@@ -635,7 +982,9 @@ begin
         for j := 0 to metadb.Procedures[i].GrantsCount - 1 do
         begin
           AddLog('  %s', [metadb.Procedures[i].Grants[j].Name]);
-          ExecuteImmediate(metadb.Procedures[i].Grants[j].AsFullDDL);
+          Perfs.meta_grants.Start;
+            ExecuteImmediate(metadb.Procedures[i].Grants[j].AsFullDDL);
+          Perfs.meta_grants.Stop;
         end;
       end;
     end;
@@ -650,6 +999,40 @@ begin
     begin
       AddLog('--- %d error(s) ! ---', [FErrorsCount], srEchec);
       Result := False;
+    end;
+
+    Perfs.duration.Stop;
+
+    AddLog('Overall Counters');
+    AddLog(' Duration           %s', [Perfs.duration.duration.ToString]);
+    AddLog(' Data Pump          %s', [Perfs.data_pump.duration.ToString]);
+    AddLog(' Source Database');
+    AddLog('  Connection        %s', [Perfs.source_connection.duration.ToString]);
+    AddLog('  Disconnection     %s', [Perfs.source_disconnection.duration.ToString]);
+    AddLog('  Metadata Loading  %s', [Perfs.source_metadata.duration.ToString]);
+    AddLog(' Target Database');
+    AddLog('  Connection        %s', [Perfs.target_connection.duration.ToString]);
+    AddLog('  Disconnection     %s', [Perfs.target_disconnection.duration.ToString]);
+    AddLog('  Drop              %s', [Perfs.target_drop.duration.ToString]);
+    AddLog('  Creation          %s', [Perfs.target_creation.duration.ToString]);
+    if not PumpOnly then
+    begin
+      AddLog(' Metadata Cloning');
+      AddLog('  Roles             %s', [Perfs.meta_roles.duration.ToString]);
+      AddLog('  User Functions    %s', [Perfs.meta_functions.duration.ToString]);
+      AddLog('  Domains           %s', [Perfs.meta_domains.duration.ToString]);
+      AddLog('  Generators        %s', [Perfs.meta_generators.duration.ToString]);
+      AddLog('  Exceptions        %s', [Perfs.meta_exceptions.duration.ToString]);
+      AddLog('  Procedures        %s', [Perfs.meta_procedures.duration.ToString]);
+      AddLog('  Tables            %s', [Perfs.meta_tables.duration.ToString]);
+      AddLog('  Views             %s', [Perfs.meta_views.duration.ToString]);
+      AddLog('  Unique Index      %s', [Perfs.meta_unique.duration.ToString]);
+      AddLog('  Primary Keys      %s', [Perfs.meta_primary.duration.ToString]);
+      AddLog('  Foreign Keys      %s', [Perfs.meta_foreign.duration.ToString]);
+      AddLog('  Indices           %s', [Perfs.meta_indices.duration.ToString]);
+      AddLog('  Triggers          %s', [Perfs.meta_triggers.duration.ToString]);
+      AddLog('  Check Constraints %s', [Perfs.meta_checks.duration.ToString]);
+      AddLog('  Grants            %s', [Perfs.meta_grants.duration.ToString]);
     end;
   end;
 end;
@@ -849,3 +1232,4 @@ begin
     end;
   end;
 end.
+
