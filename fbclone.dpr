@@ -16,6 +16,7 @@ uses
   CxGetOpts;
 
 type
+  ConsoleString = type AnsiString(850);
   TScriptResult = (srNothingDone, srEchec, srSucces, srAnnule);
 
   TDatabase = record
@@ -220,6 +221,7 @@ function TPerformanceCounter.TDuration.ToString: String;
 var
   h,m,s: Integer;
   ms: Extended;
+  mss: string;
 begin
   s := Trunc(value);
   m := s div 60;
@@ -228,21 +230,34 @@ begin
   m := m - (h * 60);
   ms := Frac(value);
 
+  mss := Format('%.4f', [ms]);
+  while mss[1] <> DecimalSeparator do
+    Delete(mss,1,1);
+
   if (h > 0) or (m > 0) or (s > 0) then
-    Result := Format('%.2d:%.2d:%07.4f', [h, m, s + ms])
+    Result := Format('%.2d:%.2d:%.2d%s h', [h, m, s, mss])
   else if ms > 0.00001 then
     Result := Format('%13.4f ms', [ms * 1000])
   else
     Result := Format('%13d ms', [0]);
 end;
 
-
-procedure TraceAction(const Action: String; Resultat: TScriptResult);
+procedure TraceAction(const Action: ConsoleString; Resultat: TScriptResult);
 begin
   if Resultat = srEchec then
     WriteLn(ErrOutput, Action)
   else
     WriteLn(Action);
+end;
+
+procedure Trace(const Action: String = '');
+begin
+  TraceAction(ConsoleString(Action), srSucces);
+end;
+
+procedure TraceError(const Error: String = '');
+begin
+  TraceAction(ConsoleString(Error), srEchec);
 end;
 
 function Clone(const Source, Target: TDatabase; PageSize: Integer; const DataCharset, MetaCharset: string; Verbose: Boolean; PumpOnly: Boolean; FailSafe: Boolean; CommitInterval: Integer; const DumpFile: string): Boolean;
@@ -254,10 +269,10 @@ var
   SQLDump: TStringStream;
   Perfs: TOverallPerformanceStats;
 
-  procedure AddLog(const What: string = ''; Resultat: TScriptResult = srSucces); overload;
+  procedure AddLog(const What: String = ''; Resultat: TScriptResult = srSucces); overload;
   begin
     if Verbose then
-      TraceAction(What, Resultat);
+      TraceAction(ConsoleString(What), Resultat);
   end;
 
   procedure AddLog(const FmtStr: String; const Args: array of const; Resultat: TScriptResult = srSucces); overload;
@@ -446,7 +461,7 @@ var
                 S.transaction_commit.Stop;
               end;
 
-              if GetTickCount - LastDisplay > 100 then
+              if Verbose and (GetTickCount - LastDisplay > 100) then
               begin
                 Write('    ', done, ' records' + #13);
                 LastDisplay := GetTickCount;
@@ -840,7 +855,7 @@ begin
     if not PumpOnly then
     begin
       // UNIQUE
-      AddLog(#13#10 + 'Create Unique Indices');
+      AddLog(#13#10 + 'Create Unique Constraints');
       for i := 0 to metadb.TablesCount - 1 do
       for j := 0 to metadb.Tables[i].UniquesCount - 1 do
       begin
@@ -879,7 +894,9 @@ begin
       begin
         AddLog('  %s', [metadb.Tables[i].Indices[j].Name]);
         Perfs.meta_indices.Start;
-          ExecuteImmediate(metadb.Tables[i].Indices[j].AsFullDDL);
+          ExecuteImmediate(metadb.Tables[i].Indices[j].AsDDL);
+          if not metadb.Tables[i].Indices[j].Active then
+            ExecuteImmediate(metadb.Tables[i].Indices[j].AsAlterToInactiveDDL);
         Perfs.meta_indices.Stop;
       end;
 
@@ -1117,52 +1134,52 @@ begin
 
       if GO.Flag['h'] then
       begin
-        GO.PrintSyntax;
-        WriteLn;
-        GO.PrintHelp;
+        Trace(GO.PrintSyntax);
+        Trace;
+        Trace(GO.PrintHelp);
         Exit;
       end;
 
       if not GO.Validate then
       begin
-        WriteLn('Missing parameters on command line:');
+        TraceError('Missing parameters on command line:');
         for O in GO.Missing do
-          WriteLn(' ', O.ToShortSyntax);
-        WriteLn;
-        GO.PrintSyntax;
-        Exit;
+          TraceError(' ' + O.ToShortSyntax);
+        TraceError;
+        TraceError(GO.PrintSyntax);
+        Halt(1);
       end;
 
       if GO.Flag['u'] and (GO.Flag['su'] or GO.Flag['tu']) then
       begin
-        WriteLn('Conflict between parameters on command line:');
-        WriteLn(' ', 'Flags -tu and -su cannot be used with -u');
-        WriteLn;
-        GO.PrintSyntax;
-        Exit;
+        TraceError('Conflict between parameters on command line:');
+        TraceError(' Flags -tu and -su cannot be used with -u');
+        TraceError;
+        TraceError(GO.PrintSyntax);
+        Halt(1);
       end;
 
       if GO.Flag['p'] and (GO.Flag['sp'] or GO.Flag['tp']) then
       begin
-        WriteLn('Conflict between parameters on command line:');
-        WriteLn(' ', 'Flags -tp and -sp cannot be used with -p');
-        WriteLn;
-        GO.PrintSyntax;
-        Exit;
+        TraceError('Conflict between parameters on command line:');
+        TraceError(' Flags -tp and -sp cannot be used with -p');
+        TraceError;
+        TraceError(GO.PrintSyntax);
+        Halt(1);
       end;
 
       if GO.Flag['po'] and GO.Flag['ps'] then
       begin
-        WriteLn('Useless flag on command line:');
-        WriteLn(' ', 'The flag -ps (Page Size) will be ignored if -po (Pump Only Mode) is specified');
-        WriteLn;
+        TraceError('Useless flag on command line:');
+        TraceError(' The flag -ps (Page Size) will be ignored if -po (Pump Only Mode) is specified');
+        TraceError;
       end;
 
       if GO.Flag['f'] and GO.Flag['ci'] then
       begin
-        WriteLn('Useless flag on command line:');
-        WriteLn(' ', 'The flag -ci (Commit Interval) will be ignored if -f (Failsafe Mode) is specified');
-        WriteLn;
+        TraceError('Useless flag on command line:');
+        TraceError(' The flag -ci (Commit Interval) will be ignored if -f (Failsafe Mode) is specified');
+        TraceError;
       end;
 
       for P in GO.Parameters do
@@ -1213,9 +1230,9 @@ begin
     except
       on E: Exception do
       begin
-        WriteLn('Error on command line ' + E.Message);
-        GO.PrintSyntax;
-        Exit;
+        TraceError('Error on command line ' + E.Message);
+        TraceError(GO.PrintSyntax);
+        Halt(1);
       end;
     end;
   finally
@@ -1223,12 +1240,19 @@ begin
   end;
 
   try
-    Clone(src, tgt, page_size, data_charset, meta_charset, verbose, pump_only, failsafe, commit_interval, dump_file);
+    if not Clone(src, tgt, page_size,
+             data_charset, meta_charset,
+             verbose,
+             pump_only,
+             failsafe, commit_interval,
+             dump_file)
+    then
+      Halt(1);
   except
     on E: Exception do
     begin
-      WriteLn(E.Message);
-      Read;
+      TraceError('General exception ' + E.Message);
+      Halt(1);
     end;
   end;
 end.
