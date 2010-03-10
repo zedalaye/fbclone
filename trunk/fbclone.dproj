@@ -34,6 +34,7 @@
 			<DCC_DebugInformation>false</DCC_DebugInformation>
 		</PropertyGroup>
 		<PropertyGroup Condition="'$(Cfg_2)'!=''">
+			<DCC_Optimize>false</DCC_Optimize>
 			<DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
 		</PropertyGroup>
 		<ItemGroup>
@@ -65,13 +66,13 @@
 						<Parameters Name="UseLauncher">False</Parameters>
 						<Parameters Name="LoadAllSymbols">True</Parameters>
 						<Parameters Name="LoadUnspecifiedSymbols">False</Parameters>
-						<Parameters Name="RunParams">-v -s localhost:D:\BDD\Neptis10\Clients\BDCL.FDB -t localhost:D:\BDD\Neptis10\Clients\BDCL.C15.FDB -ps 8192</Parameters>
+						<Parameters Name="RunParams">-v -po -s :d:\bdd\neptis10\clients\bdcl.f.fdb -t d:\bdd\neptis10\clients\bdcl.r.fdb -tl fbembed.dll -mc ISO8859_1  -rd &quot;D:\BDD\Neptis10\Clients\repair.sql&quot;</Parameters>
 					</Parameters>
 					<VersionInfo>
 						<VersionInfo Name="IncludeVerInfo">True</VersionInfo>
 						<VersionInfo Name="AutoIncBuild">False</VersionInfo>
-						<VersionInfo Name="MajorVer">1</VersionInfo>
-						<VersionInfo Name="MinorVer">6</VersionInfo>
+						<VersionInfo Name="MajorVer">2</VersionInfo>
+						<VersionInfo Name="MinorVer">0</VersionInfo>
 						<VersionInfo Name="Release">0</VersionInfo>
 						<VersionInfo Name="Build">0</VersionInfo>
 						<VersionInfo Name="Debug">False</VersionInfo>
@@ -85,13 +86,13 @@
 					<VersionInfoKeys>
 						<VersionInfoKeys Name="CompanyName">Crisalid</VersionInfoKeys>
 						<VersionInfoKeys Name="FileDescription">Firebird Cloner can Clone Firebird Databases</VersionInfoKeys>
-						<VersionInfoKeys Name="FileVersion">1.6.0.0</VersionInfoKeys>
+						<VersionInfoKeys Name="FileVersion">2.0.0.0</VersionInfoKeys>
 						<VersionInfoKeys Name="InternalName">fbcloner</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalCopyright">©2009-2010 - Crisalid</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalTrademarks">Firebird is registered by the Firebird Foundation</VersionInfoKeys>
 						<VersionInfoKeys Name="OriginalFilename"/>
 						<VersionInfoKeys Name="ProductName">FBCloner</VersionInfoKeys>
-						<VersionInfoKeys Name="ProductVersion">1.6</VersionInfoKeys>
+						<VersionInfoKeys Name="ProductVersion">2.0</VersionInfoKeys>
 						<VersionInfoKeys Name="Comments"/>
 					</VersionInfoKeys>
 					<Excluded_Packages>
