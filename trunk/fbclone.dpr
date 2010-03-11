@@ -64,6 +64,7 @@ type
     reading_prepare: TPerformanceCounter;
     reading_commit: TPerformanceCounter;
     writing: TPerformanceCounter;
+    deleting: TPerformanceCounter;
     blobs: TPerformanceCounter;
     arrays: TPerformanceCounter;
     function LastToString(indent: Integer): String;
@@ -111,6 +112,7 @@ begin
   reading.Reset;
   reading_prepare.Reset;
   reading_commit.Reset;
+  deleting.Reset;
   writing.Reset;
   blobs.Reset;
   arrays.Reset;
@@ -140,6 +142,7 @@ begin
       IndentString + 'Source Prepare       [%9d] %s %s' + #13#10 +
       IndentString + 'Source Data Read     [%9d] %s %s' + #13#10 +
       IndentString + 'Source Data Commit   [%9d] %s %s' + #13#10 +
+      IndentString + 'Target Data Deletion [%9d] %s %s' + #13#10 +
       IndentString + 'Target Data Write    [%9d] %s %s' + #13#10 +
       IndentString + 'Target Blob Create   [%9d] %s %s' + #13#10 +
       IndentString + 'Target Arrays Create [%9d] %s %s',
@@ -151,6 +154,7 @@ begin
         reading_prepare.last_count,    reading_prepare.last_duration.ToString,    reading_prepare.LastRPSToString,
         reading.last_count,            reading.last_duration.ToString,            reading.LastRPSToString,
         reading_commit.last_count,     reading_commit.last_duration.ToString,     reading_commit.LastRPSToString,
+        deleting.last_count,           deleting.last_duration.ToString,           deleting.LastRPSToString,
         writing.last_count,            writing.last_duration.ToString,            writing.LastRPSToString,
         blobs.last_count,              blobs.last_duration.ToString,              blobs.LastRPSToString,
         arrays.last_count,             arrays.last_duration.ToString,             arrays.LastRPSToString
@@ -168,6 +172,7 @@ begin
       '  Source Prepare       [%9d] %s %s' + #13#10 +
       '  Source Data Read     [%9d] %s %s' + #13#10 +
       '  Source Data Commit   [%9d] %s %s' + #13#10 +
+      '  Target Data Deletion [%9d] %s %s' + #13#10 +
       '  Target Data Write    [%9d] %s %s' + #13#10 +
       '  Target Blob Create   [%9d] %s %s' + #13#10 +
       '  Target Arrays Create [%9d] %s %s',
@@ -179,6 +184,7 @@ begin
         reading_prepare.count,    reading_prepare.duration.ToString,    reading_prepare.RPSToString,
         reading.count,            reading.duration.ToString,            reading.RPSToString,
         reading_commit.count,     reading_commit.duration.ToString,     reading_commit.RPSToString,
+        deleting.count,           deleting.duration.ToString,           deleting.RPSToString,
         writing.count,            writing.duration.ToString,            writing.RPSToString,
         blobs.count,              blobs.duration.ToString,              blobs.RPSToString,
         arrays.count,             arrays.duration.ToString,             arrays.RPSToString
@@ -303,7 +309,7 @@ end;
 
 function Clone(const Source, Target: TDatabase;
   PageSize: Integer; const DataCharset, MetaCharset: string;
-  Verbose, PumpOnly, FailSafe: Boolean; CommitInterval: Integer;
+  Verbose, PumpOnly, EmptyTables, FailSafe: Boolean; CommitInterval: Integer;
   const DumpFile, RepairFile: string): Boolean;
 var
   SrcDatabase, DstDatabase: TUIBDatabase;
@@ -374,7 +380,8 @@ var
   end;
 
   procedure PumpData(dbhandle: IscDbHandle; mdb: TMetaDataBase;
-    charset: TCharacterSet; failsafe: Boolean; commit_interval: Integer; sorttables: Boolean);
+    charset: TCharacterSet; empty_tables: Boolean; failsafe: Boolean;
+    commit_interval: Integer; sorttables: Boolean);
   var
     T,F,c,l: Integer;
     done: Integer;
@@ -487,17 +494,26 @@ var
 
       if not (SrcQuery.Eof) then
       begin
-        sql := format('insert into %s (%s', [Table.Name, Table.MetaQuote(SrcQuery.Fields.SqlName[0])]);
-        for F := 1 to SrcQuery.Fields.FieldCount - 1 do
-          sql := sql + ', ' + Table.MetaQuote(SrcQuery.Fields.SqlName[F]);
-        sql := sql + ') values (?';
-        for F := 1 to SrcQuery.Fields.FieldCount - 1 do
-          sql := sql + ',?';
-        sql := sql + ');';
-
         with DstDatabase.Lib do
         begin
           CheckDstTransaction;
+
+          if empty_tables then
+          begin
+            sql := format('delete from %s', [Table.Name]);
+
+            S.deleting.Start;
+              DSQLExecuteImmediate(dbhandle, trhandle, MBUEncode(sql, CharacterSetCP[charset]), 3, nil);
+            S.deleting.Stop;
+          end;
+
+          sql := format('insert into %s (%s', [Table.Name, Table.MetaQuote(SrcQuery.Fields.SqlName[0])]);
+          for F := 1 to SrcQuery.Fields.FieldCount - 1 do
+            sql := sql + ', ' + Table.MetaQuote(SrcQuery.Fields.SqlName[F]);
+          sql := sql + ') values (?';
+          for F := 1 to SrcQuery.Fields.FieldCount - 1 do
+            sql := sql + ',?';
+          sql := sql + ');';
 
           S.prepare.Start;
             sthandle := nil;
@@ -1002,7 +1018,7 @@ begin
     DstTransaction.Commit;
 
     Perfs.data_pump.Start;
-      PumpData(dbhandle, metasrc, data_charset, failsafe, CommitInterval, false);
+      PumpData(dbhandle, metasrc, data_charset, PumpOnly and EmptyTables, FailSafe, CommitInterval, false);
     Perfs.data_pump.Stop;
 
     // GENERATORS VALUES
@@ -1346,7 +1362,7 @@ var
   data_charset, meta_charset: string;
   verbose: Boolean;
   dump_file, repair_file: string;
-  pump_only: Boolean;
+  pump_only, empty_tables: Boolean;
   failsafe: Boolean;
   commit_interval: integer;
   page_size: Integer;
@@ -1354,6 +1370,7 @@ var
 begin
   verbose := false;
   pump_only := false;
+  empty_tables := false;
   failsafe := False;
   commit_interval := 10000;
   meta_charset := '';
@@ -1366,7 +1383,8 @@ begin
       GO.RegisterFlag('h',    'help',            '', 'Show this help message', false);
       GO.RegisterFlag('v',    'verbose',         '', 'Show details', false);
 
-      GO.RegisterFlag('po',   'pump-only',       '', 'Pump data only from source database into target database (source database and target database must chare the same metadata structure)', false);
+      GO.RegisterFlag('po',   'pump-only',       '', 'Only pump data from source database into target database (source database and target database must share the same metadata structure)', false);
+      GO.RegisterFlag('e',    'empty-tables',    '', 'Empty tables before data pump', false);
 
       GO.RegisterSwitch('d',  'dump',            'file', 'Dump SQL script into file', false);
       GO.RegisterSwitch('rd', 'repair-dump',     'file', 'Trace errors and SQL into a repair.sql file', false);
@@ -1447,6 +1465,13 @@ begin
         TraceError;
       end;
 
+      if GO.Flag['e'] and (not GO.Flag['po']) then
+      begin
+        TraceError('Useless flag on command line:');
+        TraceError(' The flag -e (Empty Tables) will be ignored if -po (Pump Only Mode) is not specified');
+        TraceError;
+      end;
+
       if GO.Flag['f'] and GO.Flag['ci'] then
       begin
         TraceError('Useless flag on command line:');
@@ -1499,6 +1524,8 @@ begin
           repair_file := P.Value
         else if P.Key^.Short = 'po' then
           pump_only := true
+        else if P.Key^.Short = 'e' then
+          empty_tables := true
         else if P.Key^.Short = 'f' then
           failsafe := true
         else if P.Key^.Short = 'ci' then
@@ -1528,7 +1555,7 @@ begin
     if not Clone(src, tgt, page_size,
              data_charset, meta_charset,
              verbose,
-             pump_only,
+             pump_only, empty_tables,
              failsafe, commit_interval,
              dump_file, repair_file)
     then
