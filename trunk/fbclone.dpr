@@ -1,3 +1,17 @@
+(*
+ * The contents of this file are subject to the
+ * Initial Developer's Public License Version 1.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License from the Firebird Project website,
+ * at http://www.firebirdsql.org/index.php?op=doc&id=idpl.
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the License.
+ *
+ * The Original Code was created by Pierre Yager and Henri Gourvest.
+ *)
+
 program fbclone;
 
 {$APPTYPE CONSOLE}
@@ -8,12 +22,12 @@ uses
   SysUtils,
   Classes,
   Generics.Collections,
-  UIB,
-  UIBLib,
-  UIBase,
-  UIBMetadata,
-  UIBConst,
-  CxGetOpts;
+  uib,
+  uiblib,
+  uibase,
+  uibmetadata,
+  uibconst,
+  console.getopts in 'console.getopts.pas';
 
 {$I uib.inc}
 
