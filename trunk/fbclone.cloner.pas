@@ -24,10 +24,9 @@ type
   TCloner = class
   private
     FPageSize: Integer;
-    FSourceCharset: String;
     FTargetCharset: String;
-    FMetaCharset: String;
-    FDataCharset: String;
+    FReadCharset: String;
+    FWriteCharset: String;
     FOptions: TClonerOptions;
     FCommitInterval: Integer;
     FDumpFile: String;
@@ -43,10 +42,9 @@ type
     function Clone(const Source, Target: TDatabase): Boolean;
     property Options: TClonerOptions read FOptions write FOptions;
     property PageSize: Integer read FPageSize write FPageSize;
-    property SourceCharset: String read FSourceCharset write FSourceCharset;
     property TargetCharset: String read FTargetCharset write FTargetCharset;
-    property MetaCharset: String read FMetaCharset write FMetaCharset;
-    property DataCharset: String read FDataCharset write FDataCharset;
+    property ReadCharset: String read FReadCharset write FReadCharset;
+    property WriteCharset: String read FWriteCharset write FWriteCharset;
     property CommitInterval: Integer read FCommitInterval write FCommitInterval;
     property DumpFile: String read FDumpFile write FDumpFile;
     property RepairFile: String read FRepairFile write FRepairFile;
@@ -60,9 +58,9 @@ implementation
 constructor TCloner.Create;
 begin
   FPageSize := 0;
-  FDataCharset := 'UTF8';
-  FMetaCharset := 'NONE';
   FTargetCharset := 'UTF8';
+  FReadCharset := 'NONE';
+  FWriteCharset := 'WIN1252';
   FOptions := [];
   FCommitInterval := 10000;
   FDumpFile := '';
@@ -476,9 +474,8 @@ var
   i, j: integer;
   dbhandle: IscDbHandle;
   metasrc, metatgt: TMetaDataBase;
-  meta_charset,
-  read_charset, write_charset,
-  source_charset, target_charset: TCharacterSet;
+  source_charset, target_charset,
+  read_charset, write_charset: TCharacterSet;
 
   function GetDefaultCharset(const Tr: TUIBTransaction): TCharacterSet;
   var
@@ -694,24 +691,18 @@ begin
       target_charset := GetDefaultCharset(DstTransaction)
     else
       target_charset := ConvertCharset(FTargetCharset, source_charset);
-    if FMetaCharset = '' then
-      meta_charset := source_charset
-    else
-      meta_charset := ConvertCharset(FMetaCharset, csNONE);
-    read_charset := ConvertCharset(FSourceCharset, source_charset);
-    write_charset := ConvertCharset(FDataCharset, source_charset);
+    read_charset := ConvertCharset(FReadCharset, source_charset);
+    write_charset := ConvertCharset(FWriteCharset, source_charset);
 
     AddLog(#13#10 + 'Charset summary'
-         + #13#10 + '  Source database    %s'
-         + #13#10 + '  Source metadata    %s'
-         + #13#10 + '  Source data read   %s'
-         + #13#10 + '  Target database    %s'
-         + #13#10 + '  Target data write  %s',
+         + #13#10 + '  Source %s'
+         + #13#10 + '  Target %s'
+         + #13#10 + '  Read   %s'
+         + #13#10 + '  Write  %s',
       [
         CharacterSetStr[source_charset],
-        CharacterSetStr[meta_charset],
-        CharacterSetStr[read_charset],
         CharacterSetStr[target_charset],
+        CharacterSetStr[read_charset],
         CharacterSetStr[write_charset]
       ]
     );
@@ -719,7 +710,7 @@ begin
   {$IFDEF BENCH}
     Perfs.source_metadata.Start;
   {$ENDIF}
-      LoadMetadatas(SrcDatabase, SrcTransaction, meta_charset, metasrc);
+      LoadMetadatas(SrcDatabase, SrcTransaction, read_charset, metasrc);
   {$IFDEF BENCH}
     Perfs.source_metadata.Stop;
   {$ENDIF}

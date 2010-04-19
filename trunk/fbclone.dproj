@@ -20,7 +20,7 @@
 			<Base>true</Base>
 		</PropertyGroup>
 		<PropertyGroup Condition="'$(Base)'!=''">
-			<DCC_Define>FB15;ENABLE_BENCHMARK;$(DCC_Define)</DCC_Define>
+			<DCC_Define>FB15;$(DCC_Define)</DCC_Define>
 			<DCC_DependencyCheckOutputName>fbclone.exe</DCC_DependencyCheckOutputName>
 			<DCC_UsePackage>vcl;rtl;vclx;vclactnband;dbrtl;vcldb;vcldbx;bdertl;dsnap;dsnapcon;vclib;ibxpress;adortl;IndyCore;IndySystem;IndyProtocols;xmlrtl;inet;intrawebdb_100_120;Intraweb_100_120;VclSmp;vclie;websnap;webdsnap;inetdbbde;inetdbxpress;soaprtl;vclribbon;dbexpress;DbxCommonDriver;DataSnapIndy10ServerTransport;DataSnapProviderClient;DataSnapServer;DbxClientDriver;DBXInterBaseDriver;DBXMySQLDriver;dbxcds;DBXSybaseASEDriver;DBXSybaseASADriver;DBXOracleDriver;DBXMSSQLDriver;DBXInformixDriver;DBXDb2Driver;madBasic_;madDisAsm_;madExcept_;VirtualTreesD12;tmsd2009;tmsexd2009;tmsxlsd2009;tmswizd2009;TeeTree2D12Tee8;TeeWorld812;TeeImage812;TeeLanguage812;TeePro812;TeeGL812;TeeUI812;TeeDB812;Tee812;frx12;frxADO12;frxBDE12;frxcs12;frxDB12;frxDBX12;frxe12;frxIBX12;frxTee12;fs12;fsADO12;fsBDE12;fsDB12;fsIBX12;fsTee12;ComboBoxPlusR12;CPortLib12;GJLComponentsR12;SynEdit_R2009;UIBD12Win32R;GrizzlyBaseR12;OverbyteIcsD2009Run;TiersR12;PrYComponentsR12;CxLibR12;Jcl;JclVcl;JvCoreD12R;JvSystemD12R;JvStdCtrlsD12R;JvAppFrmD12R;JvBandsD12R;JvDBD12R;JvDlgsD12R;JvBDED12R;JvCmpD12R;JvCryptD12R;JvCtrlsD12R;JvCustomD12R;JvDockingD12R;JvDotNetCtrlsD12R;JvEDID12R;JvGlobusD12R;JvHMID12R;JvInterpreterD12R;JvJansD12R;JvManagedThreadsD12R;JvMMD12R;JvNetD12R;JvPageCompsD12R;JvPluginD12R;JvPrintPreviewD12R;JvRuntimeDesignD12R;JvTimeFrameworkD12R;JvValidatorsD12R;JvWizardD12R;JvXPCtrlsD12R</DCC_UsePackage>
 			<DCC_ImageBase>00400000</DCC_ImageBase>
@@ -42,7 +42,6 @@
 			</DelphiCompile>
 			<DCCReference Include="console.getopts.pas"/>
 			<DCCReference Include="fbclone.cloner.pas"/>
-			<DCCReference Include="fbclone.benchmark.pas"/>
 			<DCCReference Include="fbclone.database.pas"/>
 			<DCCReference Include="fbclone.logger.pas"/>
 			<BuildConfiguration Include="Base">
@@ -70,14 +69,14 @@
 						<Parameters Name="UseLauncher">False</Parameters>
 						<Parameters Name="LoadAllSymbols">True</Parameters>
 						<Parameters Name="LoadUnspecifiedSymbols">False</Parameters>
-						<Parameters Name="RunParams">-v -s :d:\bdd\neptis11\clients\bdcl.fdb -t :d:\bdd\neptis11\clients\bdcl.r.fdb -tc UTF8 -mc NONE -sc NONE -c WIN1252 -rd &quot;D:\BDD\Neptis11\Clients\repair.sql&quot;</Parameters>
+						<Parameters Name="RunParams">-v -s :d:\bdd\neptis11\clients\bdcl.fdb -t :d:\bdd\neptis11\clients\bdcl.r.fdb -tc UTF8 -rc NONE -wc WIN1252 -rd &quot;D:\BDD\Neptis11\Clients\repair.sql&quot;</Parameters>
 					</Parameters>
 					<VersionInfo>
 						<VersionInfo Name="IncludeVerInfo">True</VersionInfo>
 						<VersionInfo Name="AutoIncBuild">False</VersionInfo>
 						<VersionInfo Name="MajorVer">2</VersionInfo>
 						<VersionInfo Name="MinorVer">1</VersionInfo>
-						<VersionInfo Name="Release">0</VersionInfo>
+						<VersionInfo Name="Release">1</VersionInfo>
 						<VersionInfo Name="Build">0</VersionInfo>
 						<VersionInfo Name="Debug">False</VersionInfo>
 						<VersionInfo Name="PreRelease">False</VersionInfo>
@@ -90,7 +89,7 @@
 					<VersionInfoKeys>
 						<VersionInfoKeys Name="CompanyName">Crisalid</VersionInfoKeys>
 						<VersionInfoKeys Name="FileDescription">Firebird Cloner can Clone Firebird Databases</VersionInfoKeys>
-						<VersionInfoKeys Name="FileVersion">2.1.0.0</VersionInfoKeys>
+						<VersionInfoKeys Name="FileVersion">2.1.1.0</VersionInfoKeys>
 						<VersionInfoKeys Name="InternalName">fbcloner</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalCopyright">©2009-2010 - Crisalid</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalTrademarks">Firebird is registered by the Firebird Foundation</VersionInfoKeys>
