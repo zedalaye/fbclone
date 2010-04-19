@@ -57,7 +57,7 @@ var
   O: POption;
   P: TPair<POption, string>;
   src, tgt: TDatabase;
-  data_charset, meta_charset, source_charset, target_charset: string;
+  target_charset, read_charset, write_charset: string;
   opts: TClonerOptions;
   dump_file, repair_file: string;
   commit_interval: integer;
@@ -66,7 +66,9 @@ var
 begin
   opts := [];
   commit_interval := 10000;
-  meta_charset := '';
+  target_charset := '';
+  read_charset := '';
+  write_charset := '';
   dump_file := '';
   page_size := 0;
 
@@ -90,16 +92,15 @@ begin
       GO.RegisterSwitch('su', 'source-user',     'user',     'User name used to connect source database', false);
       GO.RegisterSwitch('sp', 'source-password', 'password', 'Password used to connect source database', false);
       GO.RegisterSwitch('sl', 'source-library',  'library',  'Client Library used to connect source database', false);
-      GO.RegisterSwitch('sc', 'source-charset',  'charset',  'Character set for data transfer from source database', false);
 
       GO.RegisterSwitch('t',  'target',          'database', 'Target database connection string', true);
       GO.RegisterSwitch('tu', 'target-user',     'user',     'User name used to connect target database', false);
-      GO.RegisterSwitch('tp', 'target-password', 'password', 'Password used to connect target database', false);
+      GO.RegisterSwitch('tp', 'target-password', 'password', 'Password used to connect target dat base', false);
       GO.RegisterSwitch('tl', 'target-library',  'library',  'Client Library used to connect target database', false);
-      GO.RegisterSwitch('tc', 'target-charset',  'charset',  'Target database character set', false);
+      GO.RegisterSwitch('tc', 'target-charset',  'charset',  'Target database default character set (default: source charset)', false);
 
-      GO.RegisterSwitch('c',  'charset',          'charset', 'Character set for data transfer into target database', false);
-      GO.RegisterSwitch('mc', 'metadata-charset', 'charset', 'Character set used to access source database metadata', false);
+      GO.RegisterSwitch('rc', 'read-charset',    'charset', 'Character set to read from source database (default: source charset)', false);
+      GO.RegisterSwitch('wc', 'write-charset',   'charset', 'Character set to write into target database (default: source charset)', false);
 
       GO.RegisterSwitch('u',  'user',     'user',     'User name used to connect both source and target databases', false);
       GO.RegisterSwitch('p',  'password', 'password', 'Password used to connect both source and target databases', false);
@@ -162,6 +163,13 @@ begin
         l.Error;
       end;
 
+      if GO.Flag['po'] and GO.Flag['tc'] then
+      begin
+        l.Error('Useless flag on command line:');
+        l.Error(' The flag -tc (Target Character Set) will be ignored if -po (Pump Only Mode) is specified');
+        l.Error;
+      end;
+
       if GO.Flag['e'] and (not GO.Flag['po']) then
       begin
         l.Error('Useless flag on command line:');
@@ -201,8 +209,6 @@ begin
           src.Password := P.Value
         else if P.Key^.Short = 'sl' then
           src.LibraryFileName := P.Value
-        else if P.Key^.Short = 'sc' then
-          source_charset := P.Value
         else if P.Key^.Short = 't' then
           tgt.ConnectionString := P.Value
         else if P.Key^.Short = 'tu' then
@@ -213,10 +219,10 @@ begin
           tgt.LibraryFileName := P.Value
         else if P.Key^.Short = 'tc' then
           target_charset := P.Value
-        else if P.Key^.Short = 'c' then
-          data_charset := P.Value
-        else if P.Key^.Short = 'mc' then
-          meta_charset := P.Value
+        else if P.Key^.Short = 'rc' then
+          read_charset := P.Value
+        else if P.Key^.Short = 'wc' then
+          write_charset := P.Value
         else if P.Key^.Short = 'v' then
           Include(opts, coVerbose)
         else if P.Key^.Short = 'd' then
@@ -258,10 +264,9 @@ begin
       try
         Logger := l;
         PageSize := page_size;
-        SourceCharset := source_charset;
-        MetaCharset := meta_charset;
         TargetCharset := target_charset;
-        DataCharset := data_charset;
+        ReadCharset := read_charset;
+        WriteCharset := write_charset;
         Options := opts;
         CommitInterval := commit_interval;
         DumpFile := dump_file;
