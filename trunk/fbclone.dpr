@@ -52,6 +52,22 @@ begin
   end;
 end;
 
+procedure RegisterExcludedTables(Cloner: TCloner; const TablesList: string);
+var
+  L: TStringList;
+  S: String;
+begin
+  L := TStringList.Create;
+  try
+    L.Delimiter := ',';
+    L.DelimitedText := TablesList;
+    for S in L do
+      Cloner.AddExcludedTable(S);
+  finally
+    L.Free;
+  end;
+end;
+
 var
   GO: TGetOpt;
   O: POption;
@@ -62,6 +78,8 @@ var
   dump_file, repair_file: string;
   commit_interval: integer;
   page_size: Integer;
+  excluded_tables: string;
+  c: TCloner;
   l: ILogger;
 begin
   opts := [];
@@ -101,6 +119,8 @@ begin
 
       GO.RegisterSwitch('rc', 'read-charset',    'charset', 'Character set to read from source database (default: source charset)', false);
       GO.RegisterSwitch('wc', 'write-charset',   'charset', 'Character set to write into target database (default: source charset)', false);
+
+      GO.RegisterSwitch('xt', 'exclude-table',   'list', 'Comma separated list of tables to exclude from data pump', false);
 
       GO.RegisterSwitch('u',  'user',     'user',     'User name used to connect both source and target databases', false);
       GO.RegisterSwitch('p',  'password', 'password', 'Password used to connect both source and target databases', false);
@@ -238,7 +258,9 @@ begin
         else if P.Key^.Short = 'ci' then
           commit_interval := StrToInt(P.Value)
         else if P.Key^.Short = 'ps' then
-          page_size := StrToInt(P.Value);
+          page_size := StrToInt(P.Value)
+        else if P.Key^.Short = 'xt' then
+          excluded_tables := P.Value
       end;
 
       MapEnvironment(src);
@@ -259,24 +281,24 @@ begin
   end;
 
   try
-    with TCloner.Create do
-    begin
-      try
-        Logger := l;
-        PageSize := page_size;
-        TargetCharset := target_charset;
-        ReadCharset := read_charset;
-        WriteCharset := write_charset;
-        Options := opts;
-        CommitInterval := commit_interval;
-        DumpFile := dump_file;
-        RepairFile := repair_file;
+    c := TCloner.Create;
+    try
+      c.Logger := l;
+      c.PageSize := page_size;
+      c.TargetCharset := target_charset;
+      c.ReadCharset := read_charset;
+      c.WriteCharset := write_charset;
+      c.Options := opts;
+      c.CommitInterval := commit_interval;
+      c.DumpFile := dump_file;
+      c.RepairFile := repair_file;
 
-        if not Clone(src, tgt) then
-          Halt(1);
-      finally
-        Free;
-      end;
+      RegisterExcludedTables(c, excluded_tables);
+
+      if not c.Clone(src, tgt) then
+        Halt(1);
+    finally
+      c.Free;
     end;
 
   {$IFDEF DEBUG}

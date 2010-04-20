@@ -32,6 +32,7 @@ type
     FDumpFile: String;
     FRepairFile: String;
     FLogger: ILogger;
+    FExcludedTables: TStringList;
     procedure AddLog(const What: String = ''; Level: TLogLevel = llInfo); overload;
     procedure AddLog(const FmtStr: String; const Args: array of const; Level: TLogLevel = llInfo); overload;
     procedure DumpIntoRepairLog(const error, sql: string);
@@ -39,7 +40,9 @@ type
       SrcQuery: TUIBQuery; DstDatabase: TUIBDatabase; DstTransaction: TUIBTransaction): Integer;
   public
     constructor Create;
+    destructor Destroy; override;
     function Clone(const Source, Target: TDatabase): Boolean;
+    procedure AddExcludedTable(const TableName: string);
     property Options: TClonerOptions read FOptions write FOptions;
     property PageSize: Integer read FPageSize write FPageSize;
     property TargetCharset: String read FTargetCharset write FTargetCharset;
@@ -66,6 +69,15 @@ begin
   FDumpFile := '';
   FRepairFile := '';
   FLogger := nil;
+  FExcludedTables := TStringList.Create;
+  FExcludedTables.Sorted := true;
+  FExcludedTables.Duplicates := dupIgnore;
+end;
+
+destructor TCloner.Destroy;
+begin
+  FExcludedTables.Free;
+  inherited;
 end;
 
 procedure TCloner.DumpIntoRepairLog(const error, sql: string);
@@ -181,6 +193,12 @@ begin
 
     Table := mdb.Tables[T];
     AddLog(NewLine + 'Table %s', [Table.Name]);
+
+    if FExcludedTables.IndexOf(Table.Name) >= 0 then
+    begin
+      AddLog('  EXCLUDED');
+      Continue;
+    end;
 
     first_blob := 0;
     sql := 'select ';
@@ -452,6 +470,11 @@ procedure TCloner.AddLog(const What: String; Level: TLogLevel);
 begin
   if (FLogger <> nil) and (coVerbose in FOptions) then
     FLogger.Trace(What, Level);
+end;
+
+procedure TCloner.AddExcludedTable(const TableName: string);
+begin
+  FExcludedTables.Add(TableName);
 end;
 
 procedure TCloner.AddLog(const FmtStr: String; const Args: array of const;
