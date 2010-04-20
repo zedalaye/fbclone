@@ -16,6 +16,8 @@ type
     procedure Info(const Msg: string; const Params: array of const); overload;
     procedure Error(const Msg: string = ''); overload;
     procedure Error(const Msg: string; const Params: array of const); overload;
+    procedure Progress(const Msg: string); overload;
+    procedure Progress(const Msg: string; const Params: array of const); overload;
   end;
 
   TAbstractLogger = class(TInterfacedObject, ILogger)
@@ -26,11 +28,14 @@ type
     procedure Info(const Msg: string; const Params: array of const); overload; virtual;
     procedure Error(const Msg: string = ''); overload; virtual;
     procedure Error(const Msg: string; const Params: array of const); overload; virtual;
+    procedure Progress(const Msg: string); overload; virtual; abstract;
+    procedure Progress(const Msg: string; const Params: array of const); overload;
   end;
 
   TConsoleLogger = class(TAbstractLogger)
   public
     procedure Trace(const Msg: string; Level: TLogLevel); override;
+    procedure Progress(const Msg: string); override;
   end;
 
 
@@ -55,6 +60,12 @@ begin
   Trace(Msg, Params, llInfo);
 end;
 
+procedure TAbstractLogger.Progress(const Msg: string;
+  const Params: array of const);
+begin
+  Progress(Format(Msg, Params));
+end;
+
 procedure TAbstractLogger.Error(const Msg: string;
   const Params: array of const);
 begin
@@ -67,6 +78,11 @@ begin
 end;
 
 { TConsoleLogger }
+
+procedure TConsoleLogger.Progress(const Msg: string);
+begin
+  Write(Msg, StringOfChar(' ', 80 - (Length(Msg) + 1)), #13);
+end;
 
 procedure TConsoleLogger.Trace(const Msg: string; Level: TLogLevel);
 begin

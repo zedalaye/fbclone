@@ -35,6 +35,7 @@ type
     FExcludedTables: TStringList;
     procedure AddLog(const What: String = ''; Level: TLogLevel = llInfo); overload;
     procedure AddLog(const FmtStr: String; const Args: array of const; Level: TLogLevel = llInfo); overload;
+    procedure Progress(const Msg: string);
     procedure DumpIntoRepairLog(const error, sql: string);
     function PumpData(dbhandle: IscDbHandle; mdb: TMetaDataBase; charset: TCharacterSet;
       SrcQuery: TUIBQuery; DstDatabase: TUIBDatabase; DstTransaction: TUIBTransaction): Integer;
@@ -127,6 +128,12 @@ begin
  finally
     F.Free;
   end;
+end;
+
+procedure TCloner.Progress(const Msg: string);
+begin
+  if (FLogger <> nil) and (coVerbose in FOptions) then
+    FLogger.Progress(Msg);
 end;
 
 function TCloner.PumpData(dbhandle: IscDbHandle; mdb: TMetaDataBase; charset: TCharacterSet;
@@ -368,7 +375,7 @@ begin
               else
                 info := Format('  %d records - %.1f rps', [done, done * 1000 / E]);
             {$ENDIF}
-              Write(info, StringOfChar(' ', 80 - (Length(info) + 1)), #13);
+              Progress(info);
               LastDisplay := GetTickCount;
             end;
           except
