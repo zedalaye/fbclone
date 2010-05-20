@@ -2,7 +2,7 @@
 		<PropertyGroup>
 			<ProjectGuid>{B84A69A2-DCA4-4A82-9B7C-44D5C45A1061}</ProjectGuid>
 			<MainSource>fbclone.dpr</MainSource>
-			<Config Condition="'$(Config)'==''">Débogage</Config>
+			<Config Condition="'$(Config)'==''">Release</Config>
 			<DCC_DCCCompiler>DCC32</DCC_DCCCompiler>
 			<ProjectVersion>12.0</ProjectVersion>
 		</PropertyGroup>
@@ -69,14 +69,13 @@
 						<Parameters Name="UseLauncher">False</Parameters>
 						<Parameters Name="LoadAllSymbols">True</Parameters>
 						<Parameters Name="LoadUnspecifiedSymbols">False</Parameters>
-						<Parameters Name="RunParams">-v -s :d:\bdd\neptis11\clients\bdcl.fdb -t :d:\bdd\neptis11\clients\bdcl.r.fdb -tc UTF8 -rc NONE -wc WIN1252 -rd &quot;D:\BDD\Neptis11\Clients\repair.sql&quot; -xt TICKETS,ENCAISSEMENTS,TICKETS_HIST,CAISSES_MDO,TICKETS_MDO</Parameters>
 					</Parameters>
 					<VersionInfo>
 						<VersionInfo Name="IncludeVerInfo">True</VersionInfo>
 						<VersionInfo Name="AutoIncBuild">False</VersionInfo>
 						<VersionInfo Name="MajorVer">2</VersionInfo>
 						<VersionInfo Name="MinorVer">1</VersionInfo>
-						<VersionInfo Name="Release">2</VersionInfo>
+						<VersionInfo Name="Release">3</VersionInfo>
 						<VersionInfo Name="Build">0</VersionInfo>
 						<VersionInfo Name="Debug">False</VersionInfo>
 						<VersionInfo Name="PreRelease">False</VersionInfo>
@@ -89,7 +88,7 @@
 					<VersionInfoKeys>
 						<VersionInfoKeys Name="CompanyName">Crisalid</VersionInfoKeys>
 						<VersionInfoKeys Name="FileDescription">Firebird Cloner can Clone Firebird Databases</VersionInfoKeys>
-						<VersionInfoKeys Name="FileVersion">2.1.2.0</VersionInfoKeys>
+						<VersionInfoKeys Name="FileVersion">2.1.3.0</VersionInfoKeys>
 						<VersionInfoKeys Name="InternalName">fbcloner</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalCopyright">©2009-2010 - Crisalid</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalTrademarks">Firebird is registered by the Firebird Foundation</VersionInfoKeys>

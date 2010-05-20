@@ -213,7 +213,7 @@ begin
     for F := 0 to Table.FieldsCount - 1 do
       if Table.Fields[F].ComputedSource = '' then
       begin
-        if Table.Fields[F].FieldType in [uftBlob, uftBlobId] then
+        if (first_blob = 0) and (Table.Fields[F].FieldType in [uftBlob, uftBlobId]) then
           first_blob := F;
 
         if (c = 0) then
