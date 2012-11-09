@@ -18,7 +18,8 @@ uses
 {$I uib.inc}
 
 type
-  TClonerOption = (coVerbose, coPumpOnly, coEmptyTables, coFailSafe);
+  TClonerOption = (coVerbose, coPumpOnly, coEmptyTables, coFailSafe,
+    coIgnoreCharset, coIgnoreCollation, coKeepOctets);
   TClonerOptions = set of TClonerOption;
 
   TCloner = class
@@ -39,6 +40,8 @@ type
     procedure DumpIntoRepairLog(const error, sql: string);
     function PumpData(dbhandle: IscDbHandle; mdb: TMetaDataBase; charset: TCharacterSet;
       SrcQuery: TUIBQuery; DstDatabase: TUIBDatabase; DstTransaction: TUIBTransaction): Integer;
+
+    procedure UpdateField(F: TMetaBaseField);
   public
     constructor Create;
     destructor Destroy; override;
@@ -473,6 +476,15 @@ begin
 {$ENDIF}
 end;
 
+procedure TCloner.UpdateField(F: TMetaBaseField);
+begin
+  if (coIgnoreCharset in FOptions) and not ((coKeepOctets in FOptions) and (F.CharSet = 'OCTETS')) then
+    F.CharSet := '';
+
+  if (coIgnoreCollation in FOptions) then
+    F.Collation := '';
+end;
+
 procedure TCloner.AddLog(const What: String; Level: TLogLevel);
 begin
   if (FLogger <> nil) and (coVerbose in FOptions) then
@@ -830,6 +842,8 @@ begin
       {$IFDEF BENCH}
         Perfs.meta_domains.Start;
       {$ENDIF}
+          if FOptions * [coIgnoreCharset, coIgnoreCollation] <> [] then
+            UpdateField(metasrc.Domains[i]);
           ExecuteImmediate(metasrc.Domains[i].AsFullDDL);
       {$IFDEF BENCH}
         Perfs.meta_domains.Stop;
@@ -872,6 +886,13 @@ begin
       {$IFDEF BENCH}
         Perfs.meta_procedures.Start;
       {$ENDIF}
+          if FOptions * [coIgnoreCharset, coIgnoreCollation] <> [] then
+          begin
+            for j := 0 to metasrc.Procedures[i].InputFieldsCount - 1 do
+              UpdateField(metasrc.Procedures[i].InputFields[j]);
+            for j := 0 to metasrc.Procedures[i].OutputFieldsCount - 1 do
+              UpdateField(metasrc.Procedures[i].OutputFields[j]);
+          end;
           ExecuteImmediate(metasrc.Procedures[i].AsCreateEmptyDDL);
       {$IFDEF BENCH}
         Perfs.meta_procedures.Stop;
@@ -886,6 +907,9 @@ begin
       {$IFDEF BENCH}
         Perfs.meta_tables.Start;
       {$ENDIF}
+          if FOptions * [coIgnoreCharset, coIgnoreCollation] <> [] then
+            for j := 0 to metasrc.Tables[i].FieldsCount - 1 do
+              UpdateField(metasrc.Tables[i].Fields[j]);
           ExecuteImmediate(metasrc.Tables[i].AsFullDDLNode);
       {$IFDEF BENCH}
         Perfs.meta_tables.Stop;
