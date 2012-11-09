@@ -1148,21 +1148,6 @@ begin
       {$ENDIF}
       end;
 
-      // FOREIGN
-      AddLog(#13#10 + 'Create Foreign Keys Constraints');
-      for i := 0 to metasrc.TablesCount - 1 do
-      for j := 0 to metasrc.Tables[i].ForeignCount - 1 do
-      begin
-        AddLog('  %s', [metasrc.Tables[i].Foreign[j].Name]);
-      {$IFDEF BENCH}
-        Perfs.meta_foreign.Start;
-      {$ENDIF}
-          ExecuteImmediate(metasrc.Tables[i].Foreign[j].AsFullDDL);
-      {$IFDEF BENCH}
-        Perfs.meta_foreign.Stop;
-      {$ENDIF}
-      end;
-
       // UNIQUE
       AddLog(#13#10 + 'Create Unique Constraints');
       for i := 0 to metasrc.TablesCount - 1 do
@@ -1175,6 +1160,21 @@ begin
           ExecuteImmediate(metasrc.Tables[i].Uniques[j].AsFullDDL);
       {$IFDEF BENCH}
         Perfs.meta_unique.Stop;
+      {$ENDIF}
+      end;
+
+      // FOREIGN
+      AddLog(#13#10 + 'Create Foreign Keys Constraints');
+      for i := 0 to metasrc.TablesCount - 1 do
+      for j := 0 to metasrc.Tables[i].ForeignCount - 1 do
+      begin
+        AddLog('  %s', [metasrc.Tables[i].Foreign[j].Name]);
+      {$IFDEF BENCH}
+        Perfs.meta_foreign.Start;
+      {$ENDIF}
+          ExecuteImmediate(metasrc.Tables[i].Foreign[j].AsFullDDL);
+      {$IFDEF BENCH}
+        Perfs.meta_foreign.Stop;
       {$ENDIF}
       end;
 
@@ -1210,21 +1210,6 @@ begin
       {$ENDIF}
       end;
 
-      // TABLE TRIGGERS
-      AddLog(#13#10 + 'Create Triggers');
-      for i := 0 to metasrc.TablesCount - 1 do
-      for j := 0 to metasrc.Tables[i].TriggersCount - 1 do
-      begin
-        AddLog('  %s', [metasrc.Tables[i].Triggers[j].Name]);
-      {$IFDEF BENCH}
-        Perfs.meta_triggers.Start;
-      {$ENDIF}
-          ExecuteImmediate(metasrc.Tables[i].Triggers[j].AsFullDDL);
-      {$IFDEF BENCH}
-        Perfs.meta_triggers.Stop;
-      {$ENDIF}
-      end;
-
       // VIEW TRIGGERS
       AddLog(#13#10 + 'Create Views');
       for i := 0 to metasrc.ViewsCount - 1 do
@@ -1235,6 +1220,21 @@ begin
         Perfs.meta_triggers.Start;
       {$ENDIF}
           ExecuteImmediate(metasrc.Views[i].Triggers[j].AsFullDDL);
+      {$IFDEF BENCH}
+        Perfs.meta_triggers.Stop;
+      {$ENDIF}
+      end;
+
+      // TABLE TRIGGERS
+      AddLog(#13#10 + 'Create Triggers');
+      for i := 0 to metasrc.TablesCount - 1 do
+      for j := 0 to metasrc.Tables[i].TriggersCount - 1 do
+      begin
+        AddLog('  %s', [metasrc.Tables[i].Triggers[j].Name]);
+      {$IFDEF BENCH}
+        Perfs.meta_triggers.Start;
+      {$ENDIF}
+          ExecuteImmediate(metasrc.Tables[i].Triggers[j].AsFullDDL);
       {$IFDEF BENCH}
         Perfs.meta_triggers.Stop;
       {$ENDIF}
