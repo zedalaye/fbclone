@@ -246,7 +246,7 @@ begin
       V := Copy(V, 2, MaxInt);
       FOption := FindOption(V);
       if FOption.OptionType = oUnknown then
-        raise EGetOptError.Create('Option non supportée : ' + ParamStr(I));
+        raise EGetOptError.Create('Option not supported: ' + ParamStr(I));
       FState.ParseOption(FOption);
     end
     else
@@ -261,7 +261,7 @@ var
   S: string;
   O: POption;
 begin
-  S := 'Arguments pris en charge par l''application : ';
+  S := 'Arguments allowed for this application: ';
   for O in FOptions do
     S := S + #13#10 + O^.ToLongSyntax;
   Result := S;
@@ -272,7 +272,7 @@ var
   S: string;
   O: POption;
 begin
-  S := 'Syntaxe : ' +  ExtractFileName(ParamStr(0));
+  S := 'Syntax: ' +  ExtractFileName(ParamStr(0));
   for O in FOptions do
     S := S + O^.ToShortSyntax;
   Result := S;
@@ -323,7 +323,7 @@ var
 begin
   O := FOpt.FindNextParameter;
   if O^.OptionType = oUnknown then
-    raise EGetOptError.Create('Paramètre non reconnu ' + Value)
+    raise EGetOptError.Create('Parameter not allowed: ' + Value)
   else
     FOpt.FParameters.Add(O, Value);
 end;
@@ -332,7 +332,7 @@ end;
 
 procedure TGetOpt.TSwitchValueState.ParseOption(const Value: POption);
 begin
-  raise EGetOptError.Create('Vous devez fournir une valeur pour le paramètre -' + FContext^.Short);
+  raise EGetOptError.Create('You must give a value for parameter -' + FContext^.Short);
 end;
 
 procedure TGetOpt.TSwitchValueState.ParseText(const Value: string);

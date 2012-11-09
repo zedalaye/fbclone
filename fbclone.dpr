@@ -117,8 +117,13 @@ begin
       GO.RegisterSwitch('tl', 'target-library',  'library',  'Client Library used to connect target database', false);
       GO.RegisterSwitch('tc', 'target-charset',  'charset',  'Target database default character set (default: source charset)', false);
 
-      GO.RegisterSwitch('rc', 'read-charset',    'charset', 'Character set to read from source database (default: source charset)', false);
-      GO.RegisterSwitch('wc', 'write-charset',   'charset', 'Character set to write into target database (default: source charset)', false);
+      GO.RegisterSwitch('rc', 'read-charset',    'charset',  'Character set to read from source database (default: source charset)', false);
+      GO.RegisterSwitch('wc', 'write-charset',   'charset',  'Character set to write into target database (default: source charset)', false);
+
+      GO.RegisterFlag('ics', 'ignore-charset',    '',        'Ignore Source database Character set (force using default)', false);
+      GO.RegisterFlag('ko',  'keep-octets',       '',        'Keep OCTETS Charset (use with -ics)', false);
+
+      GO.RegisterFlag('ic',  'ignore-collation',  '',        'Ignore Source database Collation (force using default)', false);
 
       GO.RegisterSwitch('xt', 'exclude-table',   'list', 'Comma separated list of tables to exclude from data pump', false);
 
@@ -190,7 +195,7 @@ begin
         l.Error;
       end;
 
-      if GO.Flag['e'] and (not GO.Flag['po']) then
+      if GO.Flag['e'] and not GO.Flag['po'] then
       begin
         l.Error('Useless flag on command line:');
         l.Error(' The flag -e (Empty Tables) will be ignored if -po (Pump Only Mode) is not specified');
@@ -201,6 +206,13 @@ begin
       begin
         l.Error('Useless flag on command line:');
         l.Error(' The flag -ci (Commit Interval) will be ignored if -f (Failsafe Mode) is specified');
+        l.Error;
+      end;
+
+      if GO.Flag['ko'] and not GO.Flag['ics'] then
+      begin
+        l.Error('Useless flag on command line:');
+        l.Error(' The flag -ko (Keep OCTETS Character set) will be ignored if -ics (Ignore Character set) is not specified');
         l.Error;
       end;
 
@@ -261,6 +273,12 @@ begin
           page_size := StrToInt(P.Value)
         else if P.Key^.Short = 'xt' then
           excluded_tables := P.Value
+        else if P.Key^.Short = 'ics' then
+          Include(opts, coIgnoreCharset)
+        else if P.Key^.Short = 'ic' then
+          Include(opts, coIgnoreCollation)
+        else if P.Key^.Short = 'ko' then
+          Include(opts, coKeepOctets)
       end;
 
       MapEnvironment(src);
