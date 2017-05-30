@@ -719,6 +719,12 @@ begin
   {$ENDIF}
   end;
 
+  SrcDatabase.SQLDialect := SrcDatabase.InfoDbSqlDialect;
+  if coPumpOnly in FOptions then
+    DstDatabase.SQLDialect := DstDatabase.InfoDbSqlDialect
+  else
+    DstDatabase.SQLDialect := SrcDatabase.SQLDialect;
+
   metasrc := TMetaDataBase.Create(nil,-1);
   metatgt := TMetaDataBase.Create(nil,-1);
 
