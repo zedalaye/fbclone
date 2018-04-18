@@ -625,17 +625,21 @@ begin
   {$ENDIF}
 
     AddLog('Source connection'
-           + #13#10 + '  Database  %s'
-           + #13#10 + '  Username  %s'
-           + #13#10 + '  Page Size %d'
-           + #13#10 + '  Client    %s'
+           + #13#10 + '  Database    %s'
+           + #13#10 + '  Username    %s'
+           + #13#10 + '  Page Size   %d'
+           + #13#10 + '  ODS version %d.%d'
+           + #13#10 + '  SQL dialect %d'
+           + #13#10 + '  Client      %s'
 {$IFDEF FB102_UP}
-           + #13#10 + '  Server    %s'
+           + #13#10 + '  Server      %s'
 {$ENDIF},
       [
         Source.ConnectionString,
         Source.Username,
         SrcDatabase.InfoPageSize,
+        SrcDatabase.InfoOdsVersion, SrcDatabase.InfoOdsMinorVersion,
+        SrcDatabase.InfoDbSqlDialect,
         SrcDatabase.InfoVersion
 {$IFDEF FB102_UP}
        ,SrcDatabase.InfoFirebirdVersion
@@ -667,17 +671,21 @@ begin
     if coPumpOnly in FOptions then
     begin
       AddLog(#13#10 + 'Target connection'
-           + #13#10 + '  Database  %s'
-           + #13#10 + '  Username  %s'
-           + #13#10 + '  Page Size %d'
-           + #13#10 + '  Client    %s'
+           + #13#10 + '  Database    %s'
+           + #13#10 + '  Username    %s'
+           + #13#10 + '  Page Size   %d'
+           + #13#10 + '  ODS version %d.%d'
+           + #13#10 + '  SQL dialect %d'
+           + #13#10 + '  Client      %s'
 {$IFDEF FB102_UP}
-           + #13#10 + '  Server    %s'
+           + #13#10 + '  Server      %s'
 {$ENDIF},
         [
           Target.ConnectionString,
           Target.Username,
           DstDatabase.InfoPageSize,
+          DstDatabase.InfoOdsVersion, DstDatabase.InfoOdsMinorVersion,
+          DstDatabase.InfoDbSqlDialect,
           DstDatabase.InfoVersion
 {$IFDEF FB102_UP}
          ,DstDatabase.InfoFirebirdVersion
@@ -710,6 +718,12 @@ begin
     Perfs.target_connection.Stop;
   {$ENDIF}
   end;
+
+  SrcDatabase.SQLDialect := SrcDatabase.InfoDbSqlDialect;
+  if coPumpOnly in FOptions then
+    DstDatabase.SQLDialect := DstDatabase.InfoDbSqlDialect
+  else
+    DstDatabase.SQLDialect := SrcDatabase.SQLDialect;
 
   metasrc := TMetaDataBase.Create(nil,-1);
   metatgt := TMetaDataBase.Create(nil,-1);
@@ -786,17 +800,21 @@ begin
     {$ENDIF}
 
       AddLog(#13#10 + 'Create Target'
-           + #13#10 + '  Database  %s'
-           + #13#10 + '  Username  %s'
-           + #13#10 + '  Page Size %d'
-           + #13#10 + '  Client    %s'
+           + #13#10 + '  Database    %s'
+           + #13#10 + '  Username    %s'
+           + #13#10 + '  Page Size   %d'
+           + #13#10 + '  ODS version %d.%d'
+           + #13#10 + '  SQL dialect %d'
+           + #13#10 + '  Client      %s'
 {$IFDEF FB102_UP}
-           + #13#10 + '  Server    %s'
+           + #13#10 + '  Server      %s'
 {$ENDIF},
         [
           Target.ConnectionString,
           Target.Username,
           DstDatabase.InfoPageSize,
+          DstDatabase.InfoOdsVersion, DstDatabase.InfoOdsMinorVersion,
+          DstDatabase.InfoDbSqlDialect,
           DstDatabase.InfoVersion
 {$IFDEF FB102_UP}
          ,DstDatabase.InfoFirebirdVersion
